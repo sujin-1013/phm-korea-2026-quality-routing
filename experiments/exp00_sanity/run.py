@@ -42,15 +42,31 @@ from phm_routing.utils.seed import set_seed
 
 DEFAULT_SEEDS = (42, 1234, 9999)
 DEFAULT_SIZES = ("small", "large")
-WINDOW = 2048           # samples per window (MOMENT auto-handles >512)
-STRIDE = 1024
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def materialise_dataset(data_root: Path, *, max_seconds_per_file: float | None = 4.0):
+def materialise_dataset(
+    data_root: Path,
+    *,
+    max_seconds_per_file: float | None = 4.0,
+    max_files_per_bearing: int | None = None,
+    seed: int = 0,
+):
     """Load full signals and group ids from disk, or synthesise if data missing."""
     entries = discover_files(data_root)
     if entries:
+        if max_files_per_bearing is not None:
+            from collections import defaultdict
+            rng = np.random.default_rng(seed)
+            per_bearing: dict[str, list] = defaultdict(list)
+            for e in entries:
+                per_bearing[e.bearing_id].append(e)
+            kept: list = []
+            for bid, lst in per_bearing.items():
+                idx = rng.permutation(len(lst))[:max_files_per_bearing]
+                kept.extend(lst[i] for i in idx)
+            entries = kept
+
         signals, labels, groups = [], [], []
         for e in entries:
             sig = load_signal(e.path)
@@ -66,18 +82,18 @@ def materialise_dataset(data_root: Path, *, max_seconds_per_file: float | None =
     return list(sigs), labels, groups, "synthetic"
 
 
-def make_windows(signals, labels, groups, indices):
+def make_windows(signals, labels, groups, indices, *, window: int, stride: int):
     """Cut every full signal in ``indices`` into windows."""
     Xs, ys, gs = [], [], []
     for i in indices:
-        w = sliding_windows(signals[i], WINDOW, STRIDE)
+        w = sliding_windows(signals[i], window, stride)
         if w.size == 0:
             continue
         Xs.append(w)
         ys.append(np.full(w.shape[0], labels[i], dtype=np.int64))
         gs.append(np.full(w.shape[0], groups[i]))
     if not Xs:
-        return np.empty((0, WINDOW), np.float32), np.empty(0, np.int64), np.empty(0)
+        return np.empty((0, window), np.float32), np.empty(0, np.int64), np.empty(0)
     return np.concatenate(Xs).astype(np.float32), np.concatenate(ys), np.concatenate(gs)
 
 
@@ -140,6 +156,10 @@ def main() -> None:
     p.add_argument("--folds", type=int, default=4)
     p.add_argument("--epochs", type=int, default=15)
     p.add_argument("--batch-size", type=int, default=32)
+    p.add_argument("--window", type=int, default=2048)
+    p.add_argument("--stride", type=int, default=2048, help="window stride (=window for non-overlap)")
+    p.add_argument("--max-files-per-bearing", type=int, default=None,
+                   help="subsample to N files per bearing (default: use all)")
     p.add_argument("--smoke", action="store_true", help="tiny budget for plumbing test")
     args = p.parse_args()
 
@@ -148,9 +168,15 @@ def main() -> None:
         args.folds = 2
         args.epochs = 2
         args.batch_size = 16
+        args.max_files_per_bearing = 4
 
-    print(f"[info] device={DEVICE} folds={args.folds} seeds={args.seeds} sizes={args.sizes}")
-    signals, labels, groups, source = materialise_dataset(args.data_root)
+    print(f"[info] device={DEVICE} folds={args.folds} seeds={args.seeds} sizes={args.sizes} "
+          f"window={args.window} stride={args.stride} max_files_per_bearing={args.max_files_per_bearing}")
+    signals, labels, groups, source = materialise_dataset(
+        args.data_root,
+        max_files_per_bearing=args.max_files_per_bearing,
+        seed=0,
+    )
     print(f"[info] dataset source={source} n_files={len(signals)} classes={CLASS_NAMES}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -171,8 +197,8 @@ def main() -> None:
         set_seed(seed)
         for fold, (tr_idx, te_idx) in enumerate(fold_splits):
             print(f"\n=== seed={seed} fold={fold} ===")
-            X_tr, y_tr, _ = make_windows(signals, labels, groups, tr_idx)
-            X_te, y_te, _ = make_windows(signals, labels, groups, te_idx)
+            X_tr, y_tr, _ = make_windows(signals, labels, groups, tr_idx, window=args.window, stride=args.stride)
+            X_te, y_te, _ = make_windows(signals, labels, groups, te_idx, window=args.window, stride=args.stride)
             print(f"  windows: train={X_tr.shape[0]} test={X_te.shape[0]}")
             for size in args.sizes:
                 print(f"  -> training {size}")

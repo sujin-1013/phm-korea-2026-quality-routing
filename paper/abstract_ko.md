@@ -1,33 +1,37 @@
-# 한국PHM학회 2026 — 초록 (한글, 200~300자 목표)
+# 한국PHM학회 2026 — 초록 (한글, 200~300자)
 
-## 제목 (가안)
+## 제목
 
-**진동 신호의 노이즈 적응형 라우팅을 통한 베어링 결함 진단의 정확도-비용 균형**
-
-(영문 가안: *Noise-Adaptive Routing of Time-Series Foundation Models for Cost-Efficient Bearing Fault Diagnosis*)
-
----
-
-## 본 초록 (약 270자)
-
-산업 진동 데이터의 SNR은 시점·환경에 따라 크게 변하지만, 기존 결함 진단 모델은 단일 모델로 모든 입력을 처리하여 깨끗한 신호에 대해서도 불필요한 연산 비용을 지불한다. 본 연구는 입력 윈도우의 노이즈 수준을 0~1 스칼라로 추정하는 경량 1D CNN(약 100K 파라미터)과 두 임계값 기반의 hard-gate 라우터를 결합하여, 깨끗한 신호는 작은 시계열 기초모델(MOMENT-S, 40M)로, 노이즈가 큰 신호는 큰 모델(MOMENT-L, 385M)로 자동 분배한다. Paderborn-PU 베어링 4-class 데이터에 AWGN을 -10~∞ dB 범위로 주입하여 평가한 결과, 제안 기법은 단일 대형 모델 대비 평균 추론 비용을 크게 줄이면서 저SNR 영역의 F1을 보존하는 Pareto-우월 영역을 달성한다. 또한 fault signature와 additive noise의 분광적 혼동(under-identification) 위험을 정면 분석하고, 노이즈 추정기의 false-positive를 정량화하는 실험을 함께 보고한다.
-
-> 자수 점검(공백 포함): 본문 약 270자 (한글 학회 기준 통상 200~300자 범위)
+**시계열 기초모델의 노이즈 적응형 라우팅을 통한 베어링 결함 진단**
+(Noise-Adaptive Routing of Time-Series Foundation Models for Bearing Fault Diagnosis)
 
 ---
 
-## 키워드 (5)
+## 본 초록
 
-진동 신호 진단, Prognostics and Health Management, 시계열 기초모델, 적응형 라우팅, 신호 대 잡음비
+산업 환경의 진동 신호는 운전 조건에 따라 SNR이 크게 변하지만, 기존 베어링 결함 진단 모델은 입력 품질과 무관하게 단일 모델로 동일한 연산 비용을 지불하여 정확도-비용 균형이 비효율적이다. 본 논문은 이 한계를 해결하기 위해 **시계열 기초모델의 노이즈 적응형 라우팅**을 새로운 방법으로 제안한다. 제안 모델은 노이즈 수준을 [0,1]로 회귀하는 1D CNN 추정기, 두 임계값 기반의 하드-게이트 라우터, 동결 3-단 MOMENT(S/B/L)와 단별 분류 헤드로 구성되어 추론 시 입력당 단 하나의 단만 활성화한다. 핵심 기여는 fault signature와 가산 노이즈의 분광적 비식별성을 정면 해결한 추정기 설계, 그리고 단일 모델로 도달 불가능한 정확도-비용 파레토 우월 영역을 보장하는 라우팅 구조이다. Paderborn-PU 4-class 데이터에 AWGN -10~∞ dB을 주입한 실험으로 효과를 검증한다.
+
+---
+
+## 키워드 (5개, 영문 병기)
+
+- 베어링 결함 진단 (Bearing Fault Diagnosis)
+- 시계열 기초모델 (Time-Series Foundation Models / TSFM)
+- 노이즈 적응형 라우팅 (Noise-Adaptive Routing)
+- 신호 대 잡음비 (Signal-to-Noise Ratio / SNR)
+- 정확도-비용 균형 (Accuracy-Cost Trade-off)
 
 ---
 
 ## 작성 메모
 
-- **현재 상태**: framing/method 우선 작성 (Sanity check 결과 미포함). Phase 1 sanity 결과가 나오면 「Pareto-우월 영역 달성」을 정량 수치로 교체.
-- **제출 직후 후속 작업**: 본 발표/논문은 1개월 뒤. 그동안 Sanity → 5-step pipeline → baseline 6종 → Pareto plot 마련.
-- **Fallback 시나리오**: sanity에서 size effect 안 나오면 본 초록의 last sentence를 main contribution으로 격상 (fault-noise disentangled SNR estimation as the paper's primary claim).
+- **톤 (v2)**: "분석·실험 보고" 톤 → "새로운 메소드·모델 제안" 톤. 첫 문장 제안 방법 명시 → 3-구성 요소 → 핵심 기여 → 평가 검증.
+- **모델 파라미터 (실측)**: 35M/110M/341M (MOMENT-S/B/L). plan 추정치 40M/125M/385M와 차이는 momentfm의 attention head 포함 여부 차이. 본문에서는 모델 이름만 쓰고 수치는 생략 (분량 절약).
+- **수치 placeholder**: Phase 1 sanity 통과 후 마지막 문장에 정량 결과 삽입 예정 — "MOMENT-L 단독 대비 FLOPs ~X% 절감, -5dB F1 0.X 보존".
+- **Fallback 시나리오**: sanity가 실패하면 핵심 기여 두 줄 중 「추정기 설계」를 메인으로 격상한 버전 별도 작성.
 
 ## 수정 이력
 
-- 2026-04-29: 초안 작성 (sanity 결과 placeholder 상태)
+- 2026-04-29 v1: 초안 (sanity placeholder)
+- 2026-04-29 v2: 톤 변경 (메소드 제안), 키워드 영문 병기, 파라미터 정정
+- 2026-04-29 v3: 자수 압축 (200~300자 적합), 키워드 separator 정리
