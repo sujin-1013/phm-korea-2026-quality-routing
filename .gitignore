@@ -55,11 +55,13 @@ paper/*.pdf
 Thumbs.db
 
 # Project-internal
-experiments/*/results.csv
+experiments/*/results*.csv
 experiments/*/results/
 experiments/*/checkpoints/
 experiments/*/calibration.csv
 experiments/*/fp_rate.txt
+experiments/*/snr_sweep.csv
+experiments/*/summary.json
 
 # OMC session state (not part of the project)
 .omc/

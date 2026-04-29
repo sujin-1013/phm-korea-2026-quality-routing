@@ -68,13 +68,21 @@ def materialise_dataset(
             entries = kept
 
         signals, labels, groups = [], [], []
+        n_skipped = 0
         for e in entries:
-            sig = load_signal(e.path)
+            try:
+                sig = load_signal(e.path)
+            except Exception as exc:
+                n_skipped += 1
+                print(f"[warn] skip {e.path.name}: {type(exc).__name__}: {str(exc)[:100]}", flush=True)
+                continue
             if max_seconds_per_file is not None:
                 sig = sig[: int(64_000 * max_seconds_per_file)]
             signals.append(sig.astype(np.float32))
             labels.append(e.label_idx)
             groups.append(e.bearing_id)
+        if n_skipped:
+            print(f"[info] skipped {n_skipped} corrupt .mat files", flush=True)
         return signals, np.asarray(labels), np.asarray(groups), "paderborn"
 
     print(f"[warn] no .mat files under {data_root} — falling back to synthetic", flush=True)

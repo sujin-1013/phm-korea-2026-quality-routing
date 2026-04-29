@@ -1,6 +1,6 @@
-# PHM Korea 2026 — Noise-Adaptive MOMENT Routing
+# SNRGate — SNR-Aware Gated Routing of TSFMs (PHM Korea 2026)
 
-KETI 한국PHM학회 2026 논문 코드. 진동 신호 fault diagnosis에서 입력의 noise level을 추정하고, 추정된 SNR에 따라 MOMENT (TSFM) S/B/L 3-tier 중 하나로 hard-gate routing 한다.
+KETI 한국PHM학회 2026 논문 코드. **SNRGate**는 진동 신호 fault diagnosis에서 입력의 noise level을 추정하고, 학습 가능한 단별 중심과 온도 어닐링으로 학습 시 부드럽게·추론 시 단일 단으로 환원되는 SNR 인지 게이트를 통해 MOMENT (TSFM) S/B/L 3-tier 중 하나로 routing 하는 백본 무관 프레임워크다.
 
 자세한 계획은 `/home/agent05/.claude/plans/keti-phm-sparkling-moth.md` 참조.
 
@@ -33,17 +33,18 @@ python -m experiments.exp00_sanity.run \
 | `experiments/exp02_routing/` | 풀 파이프라인 |
 | `paper/` | abstract, manuscript, figures |
 
-## 핵심 아키텍처
+## 핵심 아키텍처 (SNRGate)
 
 ```
 input (1×T raw vibration)
   ├─ Noise Estimator (1D CNN, ~100K, 🔥)  →  noise_level ∈ [0,1]
-  │     └─ Router (rule, τ₁=0.33, τ₂=0.66)
-  └─ MOMENT-{S|B|L} (40M/125M/385M, 🔒 frozen / 🔥 LoRA Phase3)
+  │     └─ SNRGate (learnable centers μ_{S,B,L} + temperature anneal, 🔥)
+  │           학습: soft mixture / 추론: argmax → 단일 단
+  └─ TSFM 백본 3-단 (instantiation: MOMENT-S/B/L, 🔒 frozen + 🔥 LoRA r=8)
         └─ per-tier 4-class head (🔥)  →  {normal, inner, outer, RE}
 ```
 
-추론 시 estimator는 항상 forward, 그 다음 1개 tier만 forward (hard gate → cost saving 보존).
+추론 시 estimator는 항상 forward, gate은 argmax로 환원되어 1개 tier만 forward (hard gate → cost saving 보존). 학습 시에는 soft gate를 통해 estimator·게이트 중심·LoRA·head가 분류 손실로부터 공동 학습된다.
 
 ## MOMENT 입력
 
