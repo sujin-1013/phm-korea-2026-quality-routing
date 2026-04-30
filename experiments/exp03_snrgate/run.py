@@ -33,24 +33,52 @@ from phm_routing.data.paderborn import (
     synthesize,
 )
 from phm_routing.data.windowing import sliding_windows
+from phm_routing.models.router import GateConfig
 from phm_routing.training.train_routing import RoutingTrainConfig, train_routing
 from phm_routing.utils.metrics import macro_f1
 from phm_routing.utils.seed import set_seed
 
 WINDOW = 2048
-STRIDE = 1024
+STRIDE = 2048
 
 
-def materialise(data_root: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def materialise(
+    data_root: Path,
+    *,
+    window: int = WINDOW,
+    stride: int = STRIDE,
+    max_files_per_bearing: int | None = None,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return ``(X_tr, y_tr, X_val, y_val)`` of windowed labelled vibration."""
     entries = discover_files(data_root)
     if entries:
+        if max_files_per_bearing is not None:
+            from collections import defaultdict
+            rng = np.random.default_rng(seed)
+            per_bearing: dict[str, list] = defaultdict(list)
+            for e in entries:
+                per_bearing[e.bearing_id].append(e)
+            kept = []
+            for lst in per_bearing.values():
+                idx = rng.permutation(len(lst))[:max_files_per_bearing]
+                kept.extend(lst[i] for i in idx)
+            entries = kept
+
         win_list, lab_list = [], []
+        n_skipped = 0
         for e in entries:
-            sig = load_signal(e.path)[: 64_000 * 4].astype(np.float32)
-            w = sliding_windows(sig, WINDOW, STRIDE)
+            try:
+                sig = load_signal(e.path)[: 64_000 * 4].astype(np.float32)
+            except Exception as exc:
+                n_skipped += 1
+                print(f"[warn] skip {e.path.name}: {type(exc).__name__}: {str(exc)[:80]}", flush=True)
+                continue
+            w = sliding_windows(sig, window, stride)
             win_list.append(w)
             lab_list.append(np.full(len(w), e.label_idx, dtype=np.int64))
+        if n_skipped:
+            print(f"[info] skipped {n_skipped} corrupt files", flush=True)
         X = np.concatenate(win_list)
         y = np.concatenate(lab_list)
     else:
@@ -58,7 +86,7 @@ def materialise(data_root: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np
         sigs, labels, _ = synthesize(SyntheticConfig(n_per_class=8))
         win_list, lab_list = [], []
         for s, lab in zip(sigs, labels):
-            w = sliding_windows(s, WINDOW, STRIDE)
+            w = sliding_windows(s, window, stride)
             win_list.append(w)
             lab_list.append(np.full(len(w), int(lab), dtype=np.int64))
         X = np.concatenate(win_list)
@@ -120,19 +148,30 @@ def main() -> None:
     p.add_argument("--batch-size", type=int, default=4)
     p.add_argument("--lora-r", type=int, default=8)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--window", type=int, default=WINDOW)
+    p.add_argument("--stride", type=int, default=STRIDE)
+    p.add_argument("--max-files-per-bearing", type=int, default=None)
     p.add_argument("--smoke", action="store_true")
     args = p.parse_args()
 
     if args.smoke:
         args.epochs = 2
         args.batch_size = 2
+        args.max_files_per_bearing = 4
 
     set_seed(args.seed)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     (args.out_dir / "checkpoints").mkdir(exist_ok=True)
 
-    Xtr, ytr, Xval, yval = materialise(args.data_root)
-    print(f"[info] train={Xtr.shape[0]} val={Xval.shape[0]} window={WINDOW}")
+    Xtr, ytr, Xval, yval = materialise(
+        args.data_root,
+        window=args.window,
+        stride=args.stride,
+        max_files_per_bearing=args.max_files_per_bearing,
+        seed=args.seed,
+    )
+    print(f"[info] train={Xtr.shape[0]} val={Xval.shape[0]} window={args.window} stride={args.stride} "
+          f"max_files_per_bearing={args.max_files_per_bearing}")
 
     cfg = RoutingTrainConfig(
         estimator_ckpt=args.estimator_ckpt,
@@ -140,6 +179,7 @@ def main() -> None:
         epochs=args.epochs,
         batch_size=args.batch_size,
         lora_r=args.lora_r,
+        gate=GateConfig(anneal_epochs=args.epochs),  # anneal T over the full training horizon
     )
     classifier, history = train_routing(Xtr, ytr, Xval, yval, cfg)
 

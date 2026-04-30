@@ -81,6 +81,17 @@ class LearnableSNRGate(nn.Module):
     def set_temperature(self, T: float) -> None:
         self.T.fill_(float(T))
 
+    @torch.no_grad()
+    def clamp_centers(self) -> None:
+        """Project centers back into [0,1] after a gradient step.
+
+        Required because ``noise_level`` is bounded in [0,1] but ``centers`` is
+        an unconstrained ``nn.Parameter``; without clamping it can drift out of
+        range during training and corrupt the soft-mixture distribution.
+        Call this once per optimiser step (or per epoch as a coarser fallback).
+        """
+        self.centers.data.clamp_(0.0, 1.0)
+
     def anneal_step(self, epoch: int) -> float:
         """Exponential decay from ``T_init`` to ``T_min`` over ``anneal_epochs``."""
         if self.cfg.anneal_epochs <= 0:

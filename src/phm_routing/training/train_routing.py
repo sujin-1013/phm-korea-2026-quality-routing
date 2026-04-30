@@ -211,6 +211,7 @@ def train_routing(
                 loss = loss_fn(mixed, yb)
             loss.backward()
             opt.step()
+            classifier.gate.clamp_centers()  # keep μ_k ∈ [0,1] for valid soft mixture
 
             ep_loss += loss.item() * xb.shape[0]
             n += xb.shape[0]
