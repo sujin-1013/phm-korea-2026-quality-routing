@@ -55,8 +55,8 @@ This repository contains the implementation and resources for **SNRGate** — an
 - **Classes (3)**: Normal · Inner-race · Outer-race
 - **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
 - **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
-- **SNR augmentation pool**: `{−20, −10, −5, 0, 5, 10, 20, ∞}` dB
-- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10, −20}` dB (8 levels)
+- **SNR augmentation pool**: `{−10, −5, 0, 5, 10, 20, ∞}` dB
+- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10}` dB (7 levels)
 
 ---
 
@@ -75,7 +75,7 @@ This repository contains the implementation and resources for **SNRGate** — an
 - **🎯 Accuracy** — 모든 SNR에서 SNRGate가 우위. 7-SNR 평균 Macro-F1 **+21.7 pp** vs 최강 단일 tier baseline (MOMENT-B).
 - **⚡ Cost** — 추론 시 단일 tier만 실행 → 평균 effective parameter **약 62% 절감** (341.2 M → 130 M, vs MOMENT-L).
 - **🧭 Gating** — Learnable centers + temperature anneal 이 rule-based 임계값(τ₁=0.33, τ₂=0.66) 대비 **+4.9 pp**.
-- **⚠️ Limit** — −20 dB까지 8-level sweep을 수행하지만 모든 방법이 공통 붕괴. 한계 분석은 논문 §6 참조.
+- **🧩 Decomposition** — 같은 학습된 단들 위에서 HardGate(rule routing)는 단일 tier baseline 대비 **+16.7 pp** → SNRGate의 성능 이득 대부분이 단순 라우팅이 아닌 **joint training이 유도한 단별 specialization** 에서 비롯됨을 입증.
 
 ---
 
