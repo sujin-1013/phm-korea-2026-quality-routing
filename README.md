@@ -35,29 +35,6 @@ This repository contains the implementation and resources for **SNRGate** — an
 
 ---
 
-## 🛠️ Code Structure
-
-```
-phm-korea-2026-snrgate/
-├── src/phm_routing/
-│   ├── data/        Paderborn-PU loader · windowing · AWGN · locked PU-C1 A2R protocol
-│   ├── models/      NoiseEstimator1D · MOMENT wrapper · LoRA · LearnableSNRGate · HardGateRouter
-│   ├── training/    train_routing (SNRGate main) · train_baseline (single-tier) · 추정기·헤드
-│   └── eval/        routing_sweep (HardGate/SNRGate 공용) · baseline_diagnostic · Pareto
-├── experiments/
-│   ├── exp03_snrgate/                 메인 실험 — SNRGate 학습 + sweep
-│   ├── exp_baselines/                 단일 tier baselines (`--diag` 로 per-class·per-bearing)
-│   ├── exp02_routing/                 HardGate 룰 기반 ablation
-│   ├── per_class_per_bearing_eval.py  저장된 ckpt 재평가
-│   └── aggregate_results.py           figures + 종합 표 자동 생성
-├── tests/                             29 unit tests
-└── pre/                               초기 sanity·estimator scaffold (archive)
-```
-
-> 논문 원고·figure·protocol 문서는 로컬 `paper/` 디렉토리에 보관되며 공개 저장소에는 포함되지 않습니다.
-
----
-
 ## 🧪 Dataset
 
 - **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
@@ -144,6 +121,29 @@ pytest tests/    # 29 tests
 | **Optimizer** | AdamW · lr 2e-4 (LoRA · head · gate) · weight_decay 1e-3 |
 | **Batch / Precision** | 8 / bf16 AMP |
 | **Seed** | 42 |
+
+---
+
+## 🛠️ Code Structure
+
+```
+phm-korea-2026-snrgate/
+├── src/phm_routing/
+│   ├── data/        Paderborn-PU loader · windowing · AWGN · locked PU-C1 A2R protocol
+│   ├── models/      NoiseEstimator1D · MOMENT wrapper · LoRA · LearnableSNRGate · HardGateRouter
+│   ├── training/    train_routing (SNRGate main) · train_baseline (single-tier) · 추정기·헤드
+│   └── eval/        routing_sweep (HardGate/SNRGate 공용) · baseline_diagnostic · Pareto
+├── experiments/
+│   ├── exp03_snrgate/                 메인 실험 — SNRGate 학습 + sweep
+│   ├── exp_baselines/                 단일 tier baselines (`--diag` 로 per-class·per-bearing)
+│   ├── exp02_routing/                 HardGate 룰 기반 ablation
+│   ├── per_class_per_bearing_eval.py  저장된 ckpt 재평가
+│   └── aggregate_results.py           figures + 종합 표 자동 생성
+├── tests/                             29 unit tests
+└── pre/                               초기 sanity·estimator scaffold (archive)
+```
+
+> 논문 원고·figure·protocol 문서는 로컬 `paper/` 디렉토리에 보관되며 공개 저장소에는 포함되지 않습니다.
 
 ---
 
