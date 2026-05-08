@@ -42,7 +42,10 @@ class HardGateRouter:
 
 @dataclass
 class GateConfig:
-    init_centers: tuple[float, float, float] = (0.17, 0.50, 0.83)
+    # Wider spread than (0.17, 0.50, 0.83) to give more room before centers can cross.
+    # Combined with the soft monotonicity penalty in train_routing, this prevents the
+    # binary-collapse observed in the 2026-05-07 run.
+    init_centers: tuple[float, float, float] = (0.10, 0.50, 0.90)
     T_init: float = 1.0
     T_min: float = 0.05
     # Number of epochs over which T is exponentially annealed from T_init→T_min.

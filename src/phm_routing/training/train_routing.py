@@ -13,6 +13,7 @@ trades compute for memory if needed for the L tier.
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Sequence
@@ -43,7 +44,8 @@ class RoutingTrainConfig:
     lora_r: int = 8
     lora_alpha: float = 16.0
     gate: GateConfig = field(default_factory=GateConfig)
-    num_class: int = 4
+    # PU-C1 A2R 3-class is the paper standard (paper/DATA_PROTOCOL_LOCKED.md).
+    num_class: int = 3
     epochs: int = 30
     batch_size: int = 4
     lr_lora: float = 1e-3
@@ -51,9 +53,12 @@ class RoutingTrainConfig:
     lr_gate: float = 1e-2
     lr_estimator: float = 1e-4
     weight_decay: float = 1e-4
-    augment_snr: tuple[float, ...] = (-10.0, -5.0, 0.0, 5.0, 10.0, 20.0)
+    augment_snr: tuple[float, ...] = (-20.0, -10.0, -5.0, 0.0, 5.0, 10.0, 20.0)
     use_amp: bool = True
     device: str = "cuda"
+    # Per-class loss weights — None → unweighted. Caller passes inverse-freq weights
+    # for PU-C1 imbalance handling (1 healthy bearing in train vs. 16 damage bearings).
+    class_weights: list[float] | None = None
 
 
 class SNRGateClassifier(nn.Module):
@@ -171,7 +176,16 @@ def train_routing(
     classifier, groups = build_classifier(cfg)
     classifier.to(device)
     opt = _make_optimizer(groups, cfg)
-    loss_fn = nn.CrossEntropyLoss()
+    if cfg.class_weights is not None:
+        cw = torch.tensor(cfg.class_weights, dtype=torch.float32, device=device)
+        if cw.numel() != cfg.num_class:
+            raise ValueError(
+                f"class_weights length ({cw.numel()}) != num_class ({cfg.num_class})"
+            )
+        loss_fn = nn.CrossEntropyLoss(weight=cw)
+        print(f"[train_routing] using weighted CE: weights={cfg.class_weights}", flush=True)
+    else:
+        loss_fn = nn.CrossEntropyLoss()
 
     Xt = torch.from_numpy(X_tr).float().unsqueeze(1)
     yt = torch.from_numpy(y_tr).long()
@@ -181,6 +195,9 @@ def train_routing(
     rng = np.random.default_rng(0)
     aug_gen = torch.Generator(device="cpu").manual_seed(0)
     history: dict[str, list] = {"train_loss": [], "val_f1": [], "T": [], "centers": []}
+    best_val_f1: float = -1.0
+    best_epoch: int = -1
+    best_state: dict | None = None
     amp_dtype = torch.bfloat16 if cfg.use_amp and device == "cuda" else torch.float32
 
     print(
@@ -190,6 +207,7 @@ def train_routing(
         f"gate={sum(p.numel() for p in groups['gate']):,}"
     )
 
+    import time
     for ep in range(cfg.epochs):
         T = classifier.gate.anneal_step(ep)
         history["T"].append(T)
@@ -197,7 +215,9 @@ def train_routing(
         classifier.train()
         perm = torch.randperm(Xt.shape[0])
         ep_loss, n = 0.0, 0
-        for i in range(0, Xt.shape[0], cfg.batch_size):
+        n_steps = (Xt.shape[0] + cfg.batch_size - 1) // cfg.batch_size
+        t0 = time.time()
+        for step, i in enumerate(range(0, Xt.shape[0], cfg.batch_size)):
             idx = perm[i : i + cfg.batch_size]
             xb = Xt[idx].clone()
             snr = random_snr_sample(rng, levels=cfg.augment_snr)
@@ -208,13 +228,28 @@ def train_routing(
             opt.zero_grad(set_to_none=True)
             with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=cfg.use_amp and device == "cuda"):
                 mixed, _p, _n = classifier.train_forward(xb)
-                loss = loss_fn(mixed, yb)
+                cls_loss = loss_fn(mixed, yb)
+                # Soft monotonicity penalty: μ_S ≤ μ_B ≤ μ_L (with margin 0.05).
+                # Without this the previous run had centers collapse to (S=0.343, B=0.316, L=0.804) —
+                # binary routing instead of 3-tier. Penalty pushes centers back into order.
+                gc = classifier.gate.centers
+                order_penalty = (
+                    torch.relu(gc[0] - gc[1] + 0.05).pow(2)
+                    + torch.relu(gc[1] - gc[2] + 0.05).pow(2)
+                )
+                loss = cls_loss + 1.0 * order_penalty
             loss.backward()
             opt.step()
             classifier.gate.clamp_centers()  # keep μ_k ∈ [0,1] for valid soft mixture
 
             ep_loss += loss.item() * xb.shape[0]
             n += xb.shape[0]
+            if step % 50 == 0 and step > 0:
+                elapsed = time.time() - t0
+                rate = step / elapsed
+                eta = (n_steps - step) / max(rate, 1e-9)
+                print(f"    ep{ep:02d} step {step}/{n_steps} loss={loss.item():.3f} "
+                      f"rate={rate:.2f} steps/s eta={eta:.0f}s", flush=True)
         history["train_loss"].append(ep_loss / max(n, 1))
         history["centers"].append(classifier.gate.centers.detach().cpu().tolist())
 
@@ -227,13 +262,33 @@ def train_routing(
                 logits, _ = classifier.inference_forward(xb)
                 preds.append(logits.argmax(-1).cpu().numpy())
         y_pred = np.concatenate(preds) if preds else np.empty(0, dtype=np.int64)
-        history["val_f1"].append(macro_f1(yv.numpy(), y_pred))
+        val_f1 = macro_f1(yv.numpy(), y_pred)
+        history["val_f1"].append(val_f1)
 
-        if ep % 5 == 0 or ep == cfg.epochs - 1:
-            c = history["centers"][-1]
-            print(
-                f"  ep {ep:02d}: T={T:.3f}  loss={history['train_loss'][-1]:.4f}  "
-                f"val_f1={history['val_f1'][-1]:.3f}  μ=({c[0]:.2f},{c[1]:.2f},{c[2]:.2f})"
-            )
+        # Track best-on-val (clean hard-gate eval). Snapshot the full classifier
+        # state so we can restore it at the end — this avoids relying on the
+        # final-epoch weights, which we observed to be worse than mid-training
+        # weights once T anneals very low.
+        is_best = val_f1 > best_val_f1
+        if is_best:
+            best_val_f1 = val_f1
+            best_epoch = ep
+            best_state = copy.deepcopy({k: v.detach().cpu().clone() for k, v in classifier.state_dict().items()})
+
+        c = history["centers"][-1]
+        marker = "  ★best" if is_best else ""
+        print(
+            f"  ep {ep:02d}: T={T:.3f}  loss={history['train_loss'][-1]:.4f}  "
+            f"val_f1={history['val_f1'][-1]:.3f}  μ=({c[0]:.2f},{c[1]:.2f},{c[2]:.2f}){marker}",
+            flush=True,
+        )
+
+    # Restore best-on-val weights so callers (sweep eval, checkpoint save) see
+    # the strongest model rather than the final epoch.
+    history["best_epoch"] = best_epoch
+    history["best_val_f1"] = best_val_f1
+    if best_state is not None:
+        classifier.load_state_dict(best_state)
+        print(f"  [done] restored best weights from ep {best_epoch:02d} (val_f1={best_val_f1:.3f})", flush=True)
 
     return classifier, history

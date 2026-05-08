@@ -1,13 +1,20 @@
 """Paderborn University bearing dataset (KAt Lessmeier et al., 2016).
 
-Standard 4-class mapping used here:
-- ``N``  (normal)            : K001–K006        — 6 healthy bearings
-- ``IR`` (inner race damage) : KI01..KI21       — artificial + real fatigue
-- ``OR`` (outer race damage) : KA01..KA30       — artificial + real fatigue
-- ``RE`` (rolling element)   : KB23..KB27       — real combined / ball damage
+Two class mappings supported:
+
+* **4-class** (N/IR/OR/RE) — legacy. Used by ``exp00_sanity`` only.
+  - ``N``  (normal)            : K001–K006        — 6 healthy bearings
+  - ``IR`` (inner race damage) : KI01..KI21       — artificial + real fatigue
+  - ``OR`` (outer race damage) : KA01..KA30       — artificial + real fatigue
+  - ``RE`` (rolling element)   : KB23..KB27       — real combined / ball damage
+
+* **3-class** (N/IR/OR) — **PAPER STANDARD**, locked 2026-05-06.
+  See ``paper/DATA_PROTOCOL_LOCKED.md``. RE class dropped (only 3 bearings —
+  insufficient for A2R protocol). All paper-bound experiments use this mapping
+  via ``pu_c1_a2r_split`` / ``materialise_pu_c1``.
 
 Each bearing yields ~80 measurements (4 operating conditions × 20 trials),
-each ~4 s @ 64 kHz. Files are MATLAB v7.3 (HDF5) — read via ``h5py``.
+each ~4 s @ 64 kHz. Files are MATLAB v5/v7 — read via ``scipy.io.loadmat``.
 
 Cite:
     Lessmeier, C., Kimotho, J. K., Zimmer, D., Sextro, W. (2016).
@@ -17,6 +24,7 @@ Cite:
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -26,6 +34,12 @@ import numpy as np
 
 CLASS_NAMES = ("N", "IR", "OR", "RE")
 CLASS_TO_IDX = {n: i for i, n in enumerate(CLASS_NAMES)}
+
+# ---------------------------------------------------------------------------
+# 3-class mapping — paper standard (PU-C1 A2R, locked 2026-05-06).
+# ---------------------------------------------------------------------------
+CLASS_NAMES_3 = ("N", "IR", "OR")
+CLASS_TO_IDX_3 = {n: i for i, n in enumerate(CLASS_NAMES_3)}
 
 # Bearing-id → class. Source: Lessmeier 2016 Table 4 + KAt website annotations.
 BEARING_CLASS: dict[str, str] = {
@@ -196,3 +210,257 @@ def synthesize(cfg: SyntheticConfig | None = None) -> tuple[np.ndarray, np.ndarr
             labels.append(CLASS_TO_IDX[cls])
             groups.append(f"{cls}_synthetic_{k:02d}")
     return np.stack(sigs), np.asarray(labels), np.asarray(groups)
+
+
+# ---------------------------------------------------------------------------
+# PU-C1 Artificial-to-Real (A2R) protocol — PAPER STANDARD (locked 2026-05-06)
+# See paper/DATA_PROTOCOL_LOCKED.md for the canonical specification.
+# ---------------------------------------------------------------------------
+
+# Train: 13 bearings (artificial damage) actually available locally.
+# Spec L85 originally listed KA01-KA09 + KI01-KI09 = 18 bearings; in practice the
+# KAt server returns 404 for KA02, KI02, KI06, KI09 (deprecated/removed), so only
+# 12 of 18 artificial bearings are obtainable. We hold out KA08/KI08 for val,
+# leaving 10 OR/IR artificial bearings + K002 for train. The OR side is slightly
+# heavier (7 vs 5 IR) — see DATA_PROTOCOL_LOCKED.md §1.2 for the deviation note.
+PU_C1_TRAIN_BEARINGS: tuple[str, ...] = (
+    "K002",                                                                  # healthy
+    "KA01", "KA03", "KA04", "KA05", "KA06", "KA07", "KA09",                  # OR artificial (7; KA08 → val)
+    "KI01", "KI03", "KI04", "KI05", "KI07",                                  # IR artificial (5; KI08 → val)
+)
+
+# Within-train val: 2 disjoint OR/IR bearings (last available artificial).
+# K002 file-level 80/20 split is handled inside ``pu_c1_a2r_split`` because
+# it's the single healthy bearing in train (no second healthy to leave out).
+PU_C1_VAL_BEARINGS: tuple[str, ...] = ("KA08", "KI08")
+
+# Test: 10 bearings (real damage / fatigue from accelerated wear). Bearing-disjoint from train.
+PU_C1_TEST_BEARINGS: tuple[str, ...] = (
+    "K001",                                                                  # healthy
+    "KA15", "KA16", "KA22", "KA30",                                          # OR real (4)
+    "KI14", "KI16", "KI17", "KI18", "KI21",                                  # IR real (5)
+)
+
+# Bearings that are excluded from PU-C1 entirely (NOT used in train/val/test).
+PU_C1_EXCLUDED_BEARINGS: tuple[str, ...] = (
+    "K003", "K004", "K005", "K006",                                          # healthy unused
+    "KB23", "KB24", "KB27",                                                  # combined damage (RE)
+)
+
+# 3-class subset of BEARING_CLASS, for PU-C1 use only.
+BEARING_CLASS_3: dict[str, str] = {
+    bid: cls for bid, cls in BEARING_CLASS.items() if cls in CLASS_NAMES_3
+}
+
+
+def _validate_pu_c1_constants() -> None:
+    """Ensure no overlap and full coverage of expected bearings."""
+    train = set(PU_C1_TRAIN_BEARINGS)
+    val = set(PU_C1_VAL_BEARINGS)
+    test = set(PU_C1_TEST_BEARINGS)
+    excluded = set(PU_C1_EXCLUDED_BEARINGS)
+    if train & val:
+        # K002 file-split is documented in pu_c1_a2r_split; the bearing
+        # appears only in TRAIN constants but contributes a small file-level
+        # subset to val. So train/val constants must be bearing-disjoint here.
+        raise AssertionError(f"PU-C1 train/val bearing constants overlap: {train & val}")
+    if train & test:
+        raise AssertionError(f"PU-C1 train/test overlap: {train & test}")
+    if val & test:
+        raise AssertionError(f"PU-C1 val/test overlap: {val & test}")
+    if (train | val | test) & excluded:
+        raise AssertionError("PU-C1 train/val/test contains excluded bearing")
+    # All listed bearings must be in the 3-class mapping.
+    for bid in train | val | test:
+        if bid not in BEARING_CLASS_3:
+            raise AssertionError(f"{bid} not in BEARING_CLASS_3 (3-class mapping)")
+
+
+_validate_pu_c1_constants()
+
+
+@dataclass
+class PUC1Split:
+    """Result of ``pu_c1_a2r_split`` — three lists of file entries."""
+
+    train: list[PaderbornFileEntry]
+    val: list[PaderbornFileEntry]
+    test: list[PaderbornFileEntry]
+
+    def summary(self) -> dict[str, dict[str, int]]:
+        """Per-split per-class file count."""
+        out: dict[str, dict[str, int]] = {"train": {}, "val": {}, "test": {}}
+        for split_name, entries in (("train", self.train), ("val", self.val), ("test", self.test)):
+            counts: dict[str, int] = {c: 0 for c in CLASS_NAMES_3}
+            for e in entries:
+                counts[e.label] = counts.get(e.label, 0) + 1
+            out[split_name] = counts
+        return out
+
+
+def pu_c1_a2r_split(
+    entries: Sequence[PaderbornFileEntry],
+    *,
+    max_files_per_bearing: int = 8,
+    seed: int = 42,
+    val_file_ratio_for_K002: float = 0.2,
+) -> PUC1Split:
+    """Apply PU-C1 A2R protocol to a list of file entries.
+
+    Returns ``PUC1Split(train, val, test)`` with bearing-disjoint splits
+    (except K002, which uses a deterministic file-level 80/20 split because
+    it is the single healthy bearing assigned to train).
+
+    Files outside the 3-class mapping (KB / K003-K006) are silently dropped.
+    Each kept bearing contributes at most ``max_files_per_bearing`` files,
+    sampled deterministically by ``seed``.
+    """
+    if not (0 < val_file_ratio_for_K002 < 1):
+        raise ValueError("val_file_ratio_for_K002 must lie in (0, 1)")
+
+    # Group by bearing, dropping anything outside the 3-class mapping.
+    by_bearing: dict[str, list[PaderbornFileEntry]] = defaultdict(list)
+    for e in entries:
+        if e.bearing_id in BEARING_CLASS_3:
+            by_bearing[e.bearing_id].append(e)
+
+    rng = np.random.default_rng(seed)
+
+    train: list[PaderbornFileEntry] = []
+    val: list[PaderbornFileEntry] = []
+    test: list[PaderbornFileEntry] = []
+
+    for bearing_id in sorted(by_bearing.keys()):  # sort for determinism
+        files = by_bearing[bearing_id]
+        # Deterministic per-bearing file selection (cap at max_files_per_bearing).
+        idx = rng.permutation(len(files))[:max_files_per_bearing]
+        kept = [files[i] for i in idx]
+
+        if bearing_id in PU_C1_TEST_BEARINGS:
+            test.extend(kept)
+        elif bearing_id in PU_C1_VAL_BEARINGS:
+            val.extend(kept)
+        elif bearing_id == "K002":
+            # File-level 80/20 split — single healthy bearing in train.
+            split_rng = np.random.default_rng(seed + 1)
+            file_perm = split_rng.permutation(len(kept))
+            n_val = max(1, int(round(len(kept) * val_file_ratio_for_K002)))
+            val_set = set(file_perm[:n_val].tolist())
+            for i, f in enumerate(kept):
+                (val if i in val_set else train).append(f)
+        elif bearing_id in PU_C1_TRAIN_BEARINGS:
+            train.extend(kept)
+        # Any other bearing (e.g. K003-K006) is silently dropped per spec.
+
+    return PUC1Split(train=train, val=val, test=test)
+
+
+def _load_and_window_entries(
+    entries: Sequence[PaderbornFileEntry],
+    *,
+    window: int,
+    stride: int,
+    label_to_idx: dict[str, int],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load + window a list of entries, label-mapping via ``label_to_idx``.
+
+    Mirrors the loop previously inlined inside ``exp03_snrgate.run.materialise``,
+    extracted here so all experiments share a single windowing path.
+    """
+    from .windowing import sliding_windows
+
+    win_list: list[np.ndarray] = []
+    lab_list: list[np.ndarray] = []
+    n_skipped = 0
+    for e in entries:
+        try:
+            sig = load_signal(e.path)[: 64_000 * 4].astype(np.float32)
+        except Exception as exc:
+            n_skipped += 1
+            print(
+                f"[warn] skip {e.path.name}: {type(exc).__name__}: {str(exc)[:80]}",
+                flush=True,
+            )
+            continue
+        w = sliding_windows(sig, window, stride)
+        win_list.append(w)
+        lab_list.append(np.full(len(w), label_to_idx[e.label], dtype=np.int64))
+    if n_skipped:
+        print(f"[info] skipped {n_skipped} corrupt files", flush=True)
+    if not win_list:
+        return (
+            np.empty((0, window), dtype=np.float32),
+            np.empty(0, dtype=np.int64),
+        )
+    return np.concatenate(win_list), np.concatenate(lab_list)
+
+
+def materialise_pu_c1(
+    data_root: str | Path,
+    *,
+    window: int = 2048,
+    stride: int = 2048,
+    max_files_per_bearing: int = 8,
+    seed: int = 42,
+) -> tuple[
+    np.ndarray, np.ndarray,  # train (X, y)
+    np.ndarray, np.ndarray,  # val   (X, y)
+    np.ndarray, np.ndarray,  # test  (X, y)
+]:
+    """Single-call materialisation of the PU-C1 A2R 3-class split.
+
+    Returns six ``np.ndarray`` arrays: train / val / test windows + labels.
+    Labels are 0=N, 1=IR, 2=OR per ``CLASS_TO_IDX_3``.
+
+    See ``paper/DATA_PROTOCOL_LOCKED.md`` for the canonical protocol.
+    """
+    entries = discover_files(data_root, classes=CLASS_NAMES_3)
+    if not entries:
+        raise FileNotFoundError(
+            f"No PU-C1-compatible Paderborn .mat files under {data_root}. "
+            f"Synthetic fallback is intentionally NOT supported for the "
+            f"locked PU-C1 A2R protocol — point --data-root to real data."
+        )
+
+    split = pu_c1_a2r_split(
+        entries,
+        max_files_per_bearing=max_files_per_bearing,
+        seed=seed,
+    )
+    summary = split.summary()
+    print(
+        "[pu_c1] split (file counts):  "
+        f"train={summary['train']}  val={summary['val']}  test={summary['test']}",
+        flush=True,
+    )
+
+    X_tr, y_tr = _load_and_window_entries(
+        split.train, window=window, stride=stride, label_to_idx=CLASS_TO_IDX_3
+    )
+    X_val, y_val = _load_and_window_entries(
+        split.val, window=window, stride=stride, label_to_idx=CLASS_TO_IDX_3
+    )
+    X_test, y_test = _load_and_window_entries(
+        split.test, window=window, stride=stride, label_to_idx=CLASS_TO_IDX_3
+    )
+    print(
+        "[pu_c1] windows:  "
+        f"train={X_tr.shape[0]}  val={X_val.shape[0]}  test={X_test.shape[0]}  "
+        f"window={window} stride={stride}",
+        flush=True,
+    )
+    return X_tr, y_tr, X_val, y_val, X_test, y_test
+
+
+def inverse_freq_class_weights(
+    y: np.ndarray, num_class: int = 3
+) -> "list[float]":
+    """Per-class weight = total / (num_class * count_c). Standard inverse-freq.
+
+    Returned as a plain Python list (no torch dependency at this layer); the
+    training loop wraps it into a ``torch.Tensor`` of the appropriate dtype/device.
+    """
+    counts = np.bincount(y.astype(np.int64), minlength=num_class).astype(np.float64)
+    counts[counts == 0] = 1.0  # avoid div-by-zero on empty classes
+    weights = counts.sum() / (num_class * counts)
+    return weights.astype(np.float32).tolist()

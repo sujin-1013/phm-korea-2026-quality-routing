@@ -1,4 +1,4 @@
-# Data — never commit
+# Data — never commit (Paderborn-PU is 26 GB; download via scripts/)
 data/raw/
 data/processed/
 data/interim/
@@ -6,6 +6,8 @@ data/interim/
 *.h5
 *.npy
 *.npz
+
+# Model weights — too large for git
 *.pt
 *.pth
 *.ckpt
@@ -34,38 +36,44 @@ wandb/
 mlruns/
 outputs/
 multirun/
+*.log
 
 # Hydra
 .hydra/
 
-# Notebooks (keep but strip outputs in commits)
+# Jupyter
 .ipynb_checkpoints/
 
-# Paper build
+# Paper build / submission artifacts (keep .md sources, drop binary builds)
 paper/*.aux
-paper/*.log
 paper/*.out
 paper/*.bbl
 paper/*.blg
 paper/*.synctex.gz
 paper/*.pdf
+paper/*.doc
+paper/*.docx
+
+# Internal scratch (not for public repo)
+paper/EXPERIMENT_LOG_*.md
+paper/PER_BEARING_ANALYSIS_*.md
+paper/results_summary.md
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Project-internal
-experiments/*/results*.csv
-experiments/*/results/
-experiments/*/checkpoints/
-experiments/*/calibration.csv
-experiments/*/fp_rate.txt
-experiments/*/snr_sweep.csv
-experiments/*/summary.json
+# Stale backup directories (1.9 GB+, ckpt-bearing)
+experiments/_backup*/
 
-# OMC session state (not part of the project)
+# Per-experiment artefacts — keep aggregate result CSVs/JSONs, drop large dumps
+experiments/*/checkpoints/
+experiments/*/per_sample_predictions.csv
+experiments/*/diag_baseline_*_predictions.csv
+
+# OMC / Claude session state (not part of the project)
 .omc/
 .claude/
 
-# Plan files (live in ~/.claude/plans/)
+# Plan files (live outside the repo)
 plans/

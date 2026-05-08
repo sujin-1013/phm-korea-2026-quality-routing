@@ -77,14 +77,17 @@ def add_pink_noise(
 
 
 def snr_sweep_levels() -> list[float]:
-    """Default SNR levels used in the paper (per Notion §10-2, plan §1.1)."""
-    return [float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0]
+    """Default SNR levels used in the paper (per Notion §10-2, plan §1.1).
+
+    Extended (2026-05-06) to include -20 dB for extreme low-SNR robustness analysis.
+    """
+    return [float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0, -20.0]
 
 
 def random_snr_sample(
     rng: np.random.Generator,
     *,
-    levels: Iterable[float] = (float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0),
+    levels: Iterable[float] = (float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0, -20.0),
 ) -> float:
     """Pick a single SNR level uniformly. Used for mixed-SNR training."""
     arr = list(levels)

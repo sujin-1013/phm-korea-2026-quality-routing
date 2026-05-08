@@ -1,6 +1,11 @@
 # SNRGate — 실험 정리본 (PHM Korea 2026)
 
-**작성일**: 2026-04-30
+> **🔒 데이터 셋업**: 본 문서의 §3 (exp00_sanity, 4-class) 외 모든 후속 실험은
+> [`paper/DATA_PROTOCOL_LOCKED.md`](DATA_PROTOCOL_LOCKED.md) 의 **PU-C1 A2R 3-class
+> protocol** 을 따른다 (2026-05-06 lock-in). 본 정리본은 그 lock 이전 결과를
+> 보존하기 위한 history 문서 — 새 실험 결과는 별도로 정리.
+
+**작성일**: 2026-04-30 (PU-C1 lock-in 이전)
 **최종 commit**: `a98d129` (master)
 **프로젝트**: KETI 한국PHM학회 2026, 시계열 기초모델의 SNR 인지 게이팅 라우팅
 
