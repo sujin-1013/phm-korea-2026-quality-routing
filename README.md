@@ -4,6 +4,19 @@
 
 This repository contains the implementation and resources for **SNRGate** — an SNR-aware dynamic routing framework that estimates the noise level of an input vibration signal and selects one of three time-series foundation models (TSFM) at inference time. Soft mixing is used during training, and a single tier is executed during inference, preserving the cost saving of sparse mixture-of-experts.
 
+<table>
+<tr>
+<td align="center"><b>Macro-F1</b><br>(7-SNR avg)</td>
+<td align="center"><b>Effective Params</b><br>(vs MOMENT-L)</td>
+<td align="center"><b>Learnable vs Rule-based</b><br>gate</td>
+</tr>
+<tr>
+<td align="center"><b>+21.7 pp</b><br>vs MOMENT-B</td>
+<td align="center"><b>−62%</b><br>341 M → 130 M</td>
+<td align="center"><b>+4.9 pp</b><br>vs HardGate</td>
+</tr>
+</table>
+
 ---
 
 ## 🔍 Overview
@@ -15,41 +28,13 @@ This repository contains the implementation and resources for **SNRGate** — an
 - 입력 신호의 노이즈 수준을 [0, 1] 정규화 점수로 추정 (`NoiseEstimator1D`, ~93 K params)
 - 학습 가능한 prototype 중심 + 온도 어닐링을 갖는 게이트로 **MOMENT-{S, B, L} 중 하나로 라우팅**
 - 학습 시 soft mixture로 미분 가능 / 추론 시 argmax 환원 → **sparse-MoE 형태의 비용 절감 보존**
-- 단조성 정규화로 prototype 중심 순서를 강제, **방법-특화적 라우팅 실패** 진단 포함
+- 단조성 정규화로 prototype 중심 순서를 강제, 방법-특화적 라우팅 실패 진단 포함
 
 ---
 
-## 🎯 Key Components
+## 📊 Results
 
-- **Noise Level Estimator**
-  - 1D CNN, AWGN 주입 자기지도 학습
-  - sigmoid(−σ_dB / 10) soft label 회귀
-- **Learnable SNR Gate**
-  - Prototype centers μ_S < μ_B < μ_L + temperature anneal
-  - Ordering penalty: `ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²`
-- **MOMENT 3-Tier Backbone**
-  - Encoder frozen, LoRA r=8 on Q/V projections only
-  - 단별 3-class linear head (Normal / Inner-race / Outer-race)
-- **HardGate (rule-based ablation)**
-  - 비교용 임계값 라우팅 (τ₁=0.33, τ₂=0.66)
-
----
-
-## 🧪 Dataset
-
-- **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
-- **Protocol**: PU-C1 A2R — *artificial → real* damage transfer
-- **Classes (3)**: Normal · Inner-race · Outer-race
-- **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
-- **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
-- **SNR augmentation pool**: `{−20, −10, −5, 0, 5, 10, 20, ∞}` dB
-- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10, −20}` dB (8 levels)
-
----
-
-## 📊 Result Summary
-
-> **Macro-F1**, 7-SNR canonical window (clean ~ −10 dB), seed=42, single run.
+> **Macro-F1**, 7-SNR canonical window (clean ~ −10 dB), seed=42, single run on Paderborn-PU PU-C1 A2R 3-class test set.
 
 | Method | clean | 20 dB | 10 dB | 5 dB | 0 dB | −5 dB | −10 dB | **avg** |
 |:---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -59,13 +44,10 @@ This repository contains the implementation and resources for **SNRGate** — an
 | HardGate (rule, ablation) | 0.600 | 0.600 | 0.589 | 0.572 | 0.522 | 0.486 | 0.363 | 0.533 |
 | **SNRGate (Ours)** | **0.636** | **0.636** | **0.633** | **0.624** | **0.591** | **0.563** | **0.396** | **0.583** |
 
-| Metric | SNRGate (Ours) | Comparison |
-|:---|---:|---:|
-| Macro-F1 (7-SNR avg) | **0.583** | **+21.7 pp** vs MOMENT-B (strongest single tier) |
-| Effective parameters (avg) | **~130 M** | **−62%** vs MOMENT-L (341.2 M) |
-| Gate design | learnable | **+4.9 pp** vs HardGate (rule) |
-
-> 🔹 모든 SNR에서 SNRGate가 우위. −20 dB까지 sweep 시 모든 방법이 공통 붕괴 — 자세한 한계 분석은 논문 §6 참조.
+- **🎯 Accuracy** — 모든 SNR에서 SNRGate가 우위. 7-SNR 평균 Macro-F1 **+21.7 pp** vs 최강 단일 tier baseline (MOMENT-B).
+- **⚡ Cost** — 추론 시 단일 tier만 실행 → 평균 effective parameter **약 62% 절감** (341.2 M → 130 M, vs MOMENT-L).
+- **🧭 Gating** — Learnable centers + temperature anneal 이 rule-based 임계값(τ₁=0.33, τ₂=0.66) 대비 **+4.9 pp**.
+- **⚠️ Limit** — −20 dB까지 8-level sweep을 수행하지만 모든 방법이 공통 붕괴. 한계 분석은 논문 §6 참조.
 
 ---
 
@@ -107,6 +89,34 @@ python experiments/aggregate_results.py
 ```bash
 pytest tests/    # 29 tests
 ```
+
+---
+
+## 🎯 Method
+
+- **Noise Level Estimator**
+  - 1D CNN (~93 K params), AWGN 주입 자기지도 학습
+  - sigmoid(−σ_dB / 10) soft label 회귀
+- **Learnable SNR Gate**
+  - Prototype centers μ_S < μ_B < μ_L + temperature anneal
+  - Ordering penalty: `ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²`
+- **MOMENT 3-Tier Backbone**
+  - Encoder frozen, LoRA r=8 on Q/V projections only
+  - 단별 3-class linear head (Normal / Inner-race / Outer-race)
+- **HardGate (rule-based ablation)**
+  - 비교용 임계값 라우팅 (τ₁=0.33, τ₂=0.66)
+
+---
+
+## 🧪 Dataset
+
+- **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
+- **Protocol**: PU-C1 A2R — *artificial → real* damage transfer
+- **Classes (3)**: Normal · Inner-race · Outer-race
+- **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
+- **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
+- **SNR augmentation pool**: `{−20, −10, −5, 0, 5, 10, 20, ∞}` dB
+- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10, −20}` dB (8 levels)
 
 ---
 
