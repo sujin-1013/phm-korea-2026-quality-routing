@@ -32,6 +32,34 @@ This repository contains the implementation and resources for **SNRGate** — an
 
 ---
 
+## 🎯 Method
+
+- **Noise Level Estimator**
+  - 1D CNN (~93 K params), AWGN 주입 자기지도 학습
+  - sigmoid(−σ_dB / 10) soft label 회귀
+- **Learnable SNR Gate**
+  - Prototype centers μ_S < μ_B < μ_L + temperature anneal
+  - Ordering penalty: `ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²`
+- **MOMENT 3-Tier Backbone**
+  - Encoder frozen, LoRA r=8 on Q/V projections only
+  - 단별 3-class linear head (Normal / Inner-race / Outer-race)
+- **HardGate (rule-based ablation)**
+  - 비교용 임계값 라우팅 (τ₁=0.33, τ₂=0.66)
+
+---
+
+## 🧪 Dataset
+
+- **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
+- **Protocol**: PU-C1 A2R — *artificial → real* damage transfer
+- **Classes (3)**: Normal · Inner-race · Outer-race
+- **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
+- **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
+- **SNR augmentation pool**: `{−20, −10, −5, 0, 5, 10, 20, ∞}` dB
+- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10, −20}` dB (8 levels)
+
+---
+
 ## 📊 Results
 
 > **Macro-F1**, 7-SNR canonical window (clean ~ −10 dB), seed=42, single run on Paderborn-PU PU-C1 A2R 3-class test set.
@@ -89,34 +117,6 @@ python experiments/aggregate_results.py
 ```bash
 pytest tests/    # 29 tests
 ```
-
----
-
-## 🎯 Method
-
-- **Noise Level Estimator**
-  - 1D CNN (~93 K params), AWGN 주입 자기지도 학습
-  - sigmoid(−σ_dB / 10) soft label 회귀
-- **Learnable SNR Gate**
-  - Prototype centers μ_S < μ_B < μ_L + temperature anneal
-  - Ordering penalty: `ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²`
-- **MOMENT 3-Tier Backbone**
-  - Encoder frozen, LoRA r=8 on Q/V projections only
-  - 단별 3-class linear head (Normal / Inner-race / Outer-race)
-- **HardGate (rule-based ablation)**
-  - 비교용 임계값 라우팅 (τ₁=0.33, τ₂=0.66)
-
----
-
-## 🧪 Dataset
-
-- **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
-- **Protocol**: PU-C1 A2R — *artificial → real* damage transfer
-- **Classes (3)**: Normal · Inner-race · Outer-race
-- **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
-- **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
-- **SNR augmentation pool**: `{−20, −10, −5, 0, 5, 10, 20, ∞}` dB
-- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10, −20}` dB (8 levels)
 
 ---
 
