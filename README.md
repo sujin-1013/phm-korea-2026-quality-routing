@@ -17,7 +17,7 @@
 </tr>
 </table>
 
-**문서**: [Manuscript](paper/manuscript_ko.md) · [Abstract](paper/abstract_ko.md) · [Data Protocol](paper/DATA_PROTOCOL_LOCKED.md) · [Experiment Summary](paper/experiment_summary.md)
+> 논문 본문·실험 protocol 문서는 본 저장소에 포함되지 않습니다 (학회 제출 후 별도 공개 예정).
 
 ---
 
@@ -47,7 +47,7 @@ Paderborn-PU **PU-C1 A2R** 3-class (N/IR/OR), 7-SNR canonical window, seed=42.
 - **Accuracy.** 평균 Macro-F1에서 가장 강한 단일 tier baseline (MOMENT-B) 대비 **+21.7 pp**. 모든 SNR에서 SNRGate가 우위.
 - **Cost.** 추론 시 단일 tier만 실행 → 평균 effective parameter **약 62% 절감** (vs MOMENT-L).
 - **Gating.** Learnable centers + temp anneal이 rule-based 임계값(τ₁=0.33, τ₂=0.66) 대비 **+4.9 pp**.
-- **Limit.** −20 dB까지 8-level sweep을 수행하지만 모든 방법이 공통 붕괴 (`paper/manuscript_ko.md` §6).
+- **Limit.** −20 dB까지 8-level sweep을 수행하지만 모든 방법이 공통 붕괴 (논문 §6 한계 분석 참조).
 
 ---
 
@@ -85,7 +85,7 @@ python experiments/exp02_routing/run.py
 # 저장된 ckpt 재평가 (per-class F1 + per-bearing accuracy)
 python experiments/per_class_per_bearing_eval.py
 
-# Figures + 종합 표 (paper/figures/ 자동 생성)
+# Figures + 종합 표 (로컬 paper/figures/ 디렉토리에 자동 저장)
 python experiments/aggregate_results.py
 ```
 
@@ -124,8 +124,6 @@ L_order = ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²
 ---
 
 ## Setup (locked)
-
-> 자세한 결정 근거는 [`paper/DATA_PROTOCOL_LOCKED.md`](paper/DATA_PROTOCOL_LOCKED.md) 참조.
 
 **Data**
 
@@ -175,12 +173,13 @@ experiments/
 ├── exp02_routing/                 HardGate 룰 기반 ablation
 ├── exp03_snrgate_main/            메인 ckpt + paper 결과 CSV/JSON
 ├── per_class_per_bearing_eval.py  저장된 ckpt에서 SNRGate+HardGate 재평가
-└── aggregate_results.py           figures + paper 표 자동 생성
+└── aggregate_results.py           figures + 종합 표 자동 생성
 
-paper/        abstract, manuscript, figures, data protocol
 pre/          초기 sanity·estimator scaffold (archive)
 tests/        29 unit tests
 ```
+
+> 논문 원고·figure·protocol 문서는 로컬 `paper/` 디렉토리에 보관되며 공개 저장소에는 포함되지 않습니다.
 
 ---
 
@@ -190,4 +189,4 @@ Paderborn-PU는 학술 사용만 허용. 데이터 사용 시 다음 인용이 �
 
 > Lessmeier, C., Kimotho, J. K., Zimmer, D., & Sextro, W. (2016). Condition Monitoring of Bearing Damage in Electromechanical Drive Systems by Using Motor Current Signals of Electric Motors: A Benchmark Data Set. *PHM Society European Conference (PHME 2016)*.
 
-본 저장소를 인용할 때는 PHM Korea 2026 논문 ([`paper/manuscript_ko.md`](paper/manuscript_ko.md))을 참조해 주십시오.
+본 저장소의 메소드(SNRGate)를 인용할 경우에는 한국PHM학회 2026 논문이 공개된 후 해당 BibTeX를 사용해 주십시오 (학회 발표 후 본 README에 추가될 예정).

@@ -44,20 +44,8 @@ multirun/
 # Jupyter
 .ipynb_checkpoints/
 
-# Paper build / submission artifacts (keep .md sources, drop binary builds)
-paper/*.aux
-paper/*.out
-paper/*.bbl
-paper/*.blg
-paper/*.synctex.gz
-paper/*.pdf
-paper/*.doc
-paper/*.docx
-
-# Internal scratch (not for public repo)
-paper/EXPERIMENT_LOG_*.md
-paper/PER_BEARING_ANALYSIS_*.md
-paper/results_summary.md
+# Paper directory — kept local only (manuscript, figures, internal logs, submission docs)
+paper/
 
 # OS
 .DS_Store
