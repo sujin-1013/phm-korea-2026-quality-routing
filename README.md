@@ -87,7 +87,6 @@ phm-korea-2026-snrgate/
 ├── scripts/
 │   └── download_paderborn.sh
 ├── tests/                             # 29 unit tests
-├── pre/                               # early scaffold (archive)
 └── pyproject.toml
 ```
 
