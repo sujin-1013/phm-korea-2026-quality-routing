@@ -1,165 +1,100 @@
-# SNRGate — SNR-Aware Gated Routing of Time-Series Models for Bearing Fault Diagnosis
+# SNRGate: SNR-Aware Dynamic Routing of Time-Series Models for Bearing Fault Diagnosis
 
-📄 한국PHM학회 2026 (KETI) — *논문 제출 준비중*
+[![Venue](https://img.shields.io/badge/PHM%20Korea%202026-in%20preparation-orange)]()
+[![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://mb.uni-paderborn.de/kat/forschung/kat-datacenter/bearing-datacenter)
 
-This repository contains the implementation and resources for **SNRGate** — an SNR-aware dynamic routing framework that estimates the noise level of an input vibration signal and selects one of three time-series foundation models (TSFM) at inference time. Soft mixing is used during training, and a single tier is executed during inference, preserving the cost saving of sparse mixture-of-experts.
+**SNRGate** is an SNR-aware dynamic routing framework for bearing fault
+diagnosis. A lightweight noise estimator scores the noise level of each input
+vibration signal, and a learnable gate routes it to one of three time-series
+foundation model tiers (MOMENT-S/B/L). Training uses a differentiable soft
+mixture; inference executes a single tier, preserving the cost savings of a
+sparse mixture-of-experts.
 
-<table>
-<tr>
-<td align="center"><b>Macro-F1</b><br>(7-SNR avg)</td>
-<td align="center"><b>Effective Params</b><br>(vs MOMENT-L)</td>
-<td align="center"><b>Learnable vs Rule-based</b><br>gate</td>
-</tr>
-<tr>
-<td align="center"><b>+21.7 pp</b><br>vs MOMENT-B</td>
-<td align="center"><b>−62%</b><br>341 M → 130 M</td>
-<td align="center"><b>+4.9 pp</b><br>vs HardGate</td>
-</tr>
-</table>
+## Highlights
 
----
+- **SNR-aware routing** — a ~93K-parameter 1D-CNN noise estimator
+  (self-supervised with AWGN injection) feeds a learnable gate with ordered
+  prototype centers and temperature annealing.
+- **+21.7 pp macro-F1** (7-SNR average) over the best single-tier baseline
+  (MOMENT-B), winning at every SNR level from clean to −10 dB.
+- **−62% effective parameters** versus always running MOMENT-L
+  (341M → 130M on average), since only one tier executes per input.
+- **Learnable beats rule-based** — the learnable gate outperforms a
+  threshold-based HardGate by +4.9 pp; decomposition shows most of the gain
+  comes from joint-training-induced tier specialization, not routing alone.
 
-## 🔍 Overview
+## Results
 
-산업 환경의 베어링 진동 신호는 부하·회전 속도·센서 잡음에 따라 입력 품질이 크게 달라진다. 기존 진단 모델은 입력 품질과 무관하게 동일한 모델을 쓰기 때문에 — **경량 모델은 저품질 신호에서 성능이 무너지고**, **대형 모델은 고품질 신호에서도 불필요한 연산**을 수행한다.
+Macro-F1 on the Paderborn PU-C1 A2R 3-class test set (artificial-to-real
+damage transfer), 7-SNR sweep, seed 42:
 
-**SNRGate** 는 다음을 통해 이 문제를 해결한다:
-
-- 입력 신호의 노이즈 수준을 [0, 1] 정규화 점수로 추정 (`NoiseEstimator1D`, ~93 K params)
-- 학습 가능한 prototype 중심 + 온도 어닐링을 갖는 게이트로 **MOMENT-{S, B, L} 중 하나로 라우팅**
-- 학습 시 soft mixture로 미분 가능 / 추론 시 argmax 환원 → **sparse-MoE 형태의 비용 절감 보존**
-- 단조성 정규화로 prototype 중심 순서를 강제, 방법-특화적 라우팅 실패 진단 포함
-
----
-
-## 🎯 Method
-
-- **Noise Level Estimator**
-  - 1D CNN (~93 K params), AWGN 주입 자기지도 학습
-  - sigmoid(−σ_dB / 10) soft label 회귀
-- **Learnable SNR Gate**
-  - Prototype centers μ_S < μ_B < μ_L + temperature anneal
-  - Ordering penalty: `ReLU(μ_S − μ_B + 0.05)² + ReLU(μ_B − μ_L + 0.05)²`
-- **MOMENT 3-Tier Backbone**
-  - Encoder frozen, LoRA r=8 on Q/V projections only
-  - 단별 3-class linear head (Normal / Inner-race / Outer-race)
-- **HardGate (rule-based ablation)**
-  - 비교용 임계값 라우팅 (τ₁=0.33, τ₂=0.66)
-
----
-
-## 🧪 Dataset
-
-- **Paderborn University Bearing Dataset** (Lessmeier *et al.*, PHME 2016)
-- **Protocol**: PU-C1 A2R — *artificial → real* damage transfer
-- **Classes (3)**: Normal · Inner-race · Outer-race
-- **Splits**: 17 train bearings (artificial damage) · 10 test bearings (real damage)
-- **Window**: 2048 samples (32 ms @ 64 kHz), stride 2048
-- **SNR augmentation pool**: `{−10, −5, 0, 5, 10, 20, ∞}` dB
-- **Evaluation sweep**: `{∞, 20, 10, 5, 0, −5, −10}` dB (7 levels)
-
----
-
-## 📊 Results
-
-> **Macro-F1**, 7-SNR canonical window (clean ~ −10 dB), seed=42, single run on Paderborn-PU PU-C1 A2R 3-class test set.
-
-| Method | clean | 20 dB | 10 dB | 5 dB | 0 dB | −5 dB | −10 dB | **avg** |
+| Method | clean | 20 dB | 10 dB | 5 dB | 0 dB | −5 dB | −10 dB | avg |
 |:---|---:|---:|---:|---:|---:|---:|---:|---:|
 | MOMENT-S only | 0.325 | 0.326 | 0.324 | 0.322 | 0.311 | 0.296 | 0.288 | 0.313 |
 | MOMENT-B only | 0.404 | 0.402 | 0.383 | 0.372 | 0.368 | 0.335 | 0.297 | 0.366 |
 | MOMENT-L only | 0.389 | 0.385 | 0.382 | 0.357 | 0.284 | 0.257 | 0.241 | 0.328 |
-| HardGate (rule, ablation) | 0.600 | 0.600 | 0.589 | 0.572 | 0.522 | 0.486 | 0.363 | 0.533 |
-| **SNRGate (Ours)** | **0.636** | **0.636** | **0.633** | **0.624** | **0.591** | **0.563** | **0.396** | **0.583** |
+| HardGate (rule-based ablation) | 0.600 | 0.600 | 0.589 | 0.572 | 0.522 | 0.486 | 0.363 | 0.533 |
+| **SNRGate (ours)** | **0.636** | **0.636** | **0.633** | **0.624** | **0.591** | **0.563** | **0.396** | **0.583** |
 
-- **🎯 Accuracy** — 모든 SNR에서 SNRGate가 우위. 7-SNR 평균 Macro-F1 **+21.7 pp** vs 최강 단일 tier baseline (MOMENT-B).
-- **⚡ Cost** — 추론 시 단일 tier만 실행 → 평균 effective parameter **약 62% 절감** (341.2 M → 130 M, vs MOMENT-L).
-- **🧭 Gating** — Learnable centers + temperature anneal 이 rule-based 임계값(τ₁=0.33, τ₂=0.66) 대비 **+4.9 pp**.
-- **🧩 Decomposition** — 같은 학습된 단들 위에서 HardGate(rule routing)는 단일 tier baseline 대비 **+16.7 pp** → SNRGate의 성능 이득 대부분이 단순 라우팅이 아닌 **joint training이 유도한 단별 specialization** 에서 비롯됨을 입증.
+## Dataset
 
----
+[Paderborn University bearing dataset](https://mb.uni-paderborn.de/kat/forschung/kat-datacenter/bearing-datacenter)
+(Lessmeier et al., PHME 2016) under the locked **PU-C1 A2R** protocol:
+17 training bearings with artificial damage, 10 test bearings with real
+damage, 3 classes (Normal / Inner-race / Outer-race), 2048-sample windows
+(32 ms at 64 kHz). SNR augmentation pool {−10, −5, 0, 5, 10, 20, ∞} dB.
 
-## 🚀 Quick Start
-
-### Environment
-
-```bash
-pip install -e .
-```
-PyTorch (CUDA), `momentfm`, `peft` (LoRA), `pandas`, `matplotlib` 필요.
-검증 환경: **NVIDIA RTX 3070 8 GB · bf16 AMP · batch=8**.
-
-### Data
+## Installation & Usage
 
 ```bash
-bash scripts/download_paderborn.sh   # 학술 사용 라이센스 동의 필요
+pip install -e .                       # PyTorch (CUDA), momentfm, peft, pandas, matplotlib
+bash scripts/download_paderborn.sh     # academic-use license agreement required
 ```
 
-### Reproduce
+Reproduce the paper experiments:
 
 ```bash
-# 1) 메인 — SNRGate 학습 + 8-SNR sweep + 라우팅 분포
-python experiments/exp03_snrgate/run.py
-
-# 2) Baselines — Single-tier S/B/L (--diag 옵션으로 per-class·per-bearing)
-python experiments/exp_baselines/run.py --diag
-
-# 3) Ablation — HardGate 룰 기반 라우팅 (메인 ckpt 재사용)
-python experiments/exp02_routing/run.py
-
-# 4) 재평가 + figures
-python experiments/per_class_per_bearing_eval.py
-python experiments/aggregate_results.py
+python experiments/exp03_snrgate/run.py          # main: SNRGate training + SNR sweep
+python experiments/exp_baselines/run.py --diag   # single-tier S/B/L baselines
+python experiments/exp02_routing/run.py          # HardGate rule-based ablation
+python experiments/per_class_per_bearing_eval.py # re-evaluate saved checkpoints
+python experiments/aggregate_results.py          # figures + summary tables
+pytest tests/                                    # 29 unit tests
 ```
 
-### Tests
+Experimental setup: MOMENT-{S,B,L} encoders frozen, LoRA r=8 (α=16) on Q/V
+projections only, AdamW lr 2e-4, weight decay 1e-3, batch 8, bf16 AMP,
+seed 42. Verified on a single RTX 3070 (8 GB).
 
-```bash
-pytest tests/    # 29 tests
-```
-
----
-
-## ⚙️ Setup (locked)
-
-| Component | Detail |
-|:---|:---|
-| **Backbone** | MOMENT-{S, B, L} (Goswami *et al.*, ICML 2024), encoder frozen |
-| **Adapter** | LoRA r=8, α=16, Q/V projections only |
-| **Estimator** | NoiseEstimator1D, ~93 K params |
-| **Gate** | LearnableSNRGate (centers + temperature anneal) |
-| **Optimizer** | AdamW · lr 2e-4 (LoRA · head · gate) · weight_decay 1e-3 |
-| **Batch / Precision** | 8 / bf16 AMP |
-| **Seed** | 42 |
-
----
-
-## 🛠️ Code Structure
+## Repository structure
 
 ```
 phm-korea-2026-snrgate/
 ├── src/phm_routing/
-│   ├── data/        Paderborn-PU loader · windowing · AWGN · locked PU-C1 A2R protocol
-│   ├── models/      NoiseEstimator1D · MOMENT wrapper · LoRA · LearnableSNRGate · HardGateRouter
-│   ├── training/    train_routing (SNRGate main) · train_baseline (single-tier) · 추정기·헤드
-│   └── eval/        routing_sweep (HardGate/SNRGate 공용) · baseline_diagnostic · Pareto
+│   ├── data/                          # Paderborn loader, windowing, AWGN, PU-C1 A2R protocol
+│   ├── models/                        # NoiseEstimator1D, MOMENT wrapper, LoRA, gates
+│   ├── training/                      # SNRGate joint training, baselines, estimator, heads
+│   ├── eval/                          # routing sweep, baseline diagnostics, Pareto
+│   └── utils/                         # metrics, FLOPs counting, seeding
 ├── experiments/
-│   ├── exp03_snrgate/                 메인 실험 — SNRGate 학습 + sweep
-│   ├── exp_baselines/                 단일 tier baselines (`--diag` 로 per-class·per-bearing)
-│   ├── exp02_routing/                 HardGate 룰 기반 ablation
-│   ├── per_class_per_bearing_eval.py  저장된 ckpt 재평가
-│   └── aggregate_results.py           figures + 종합 표 자동 생성
-├── tests/                             29 unit tests
-└── pre/                               초기 sanity·estimator scaffold (archive)
+│   ├── exp03_snrgate/                 # main experiment: SNRGate training + sweep
+│   ├── exp03_snrgate_main/            # main-run results (per-bearing, per-class, sweep CSVs)
+│   ├── exp_baselines/                 # single-tier S/B/L baselines
+│   ├── exp02_routing/                 # HardGate rule-based ablation
+│   ├── exp00_sanity/ exp01_estimator/ # sanity checks and estimator calibration
+│   ├── per_class_per_bearing_eval.py  # checkpoint re-evaluation
+│   └── aggregate_results.py           # figures and summary tables
+├── scripts/
+│   └── download_paderborn.sh
+├── tests/                             # 29 unit tests
+├── pre/                               # early scaffold (archive)
+└── pyproject.toml
 ```
 
-> 논문 원고·figure·protocol 문서는 로컬 `paper/` 디렉토리에 보관되며 공개 저장소에는 포함되지 않습니다.
+The paper manuscript, figures, and protocol documents are kept in a local
+`paper/` directory and are not part of this repository.
 
----
-
-## 📚 Citation
-
-If you use this work, please cite:
+## Citation
 
 ```bibtex
 @inproceedings{choi2026snrgate,
@@ -171,9 +106,8 @@ If you use this work, please cite:
 }
 ```
 
-> BibTeX는 학회 발표 후 공식 정보로 갱신될 예정입니다.
-
-Dataset citation (mandatory):
+The BibTeX entry will be updated with official information after the
+conference. Dataset citation (mandatory):
 
 ```bibtex
 @inproceedings{lessmeier2016paderborn,
@@ -184,11 +118,7 @@ Dataset citation (mandatory):
 }
 ```
 
----
+## Contact
 
-## 🧑‍💻 Author
-
-**Su-jin Choi (최수진)** — KETI (Korea Electronics Technology Institute)
-🐙 [@sujin-1013](https://github.com/sujin-1013)
-
-📄 Previous work: [Task-Aware Dynamic Model Optimization (IEEE Access 2023)](https://github.com/sujin-1013/task-aware-DMO)
+Sujin Choi — KETI (Korea Electronics Technology Institute) ·
+[@sujin-1013](https://github.com/sujin-1013)
