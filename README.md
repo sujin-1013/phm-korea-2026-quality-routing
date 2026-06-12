@@ -1,7 +1,7 @@
 # SNRGate: SNR-Aware Dynamic Routing of Time-Series Models for Bearing Fault Diagnosis
 
 [![Venue](https://img.shields.io/badge/PHM%20Korea%202026-in%20preparation-orange)]()
-[![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://mb.uni-paderborn.de/kat/forschung/kat-datacenter/bearing-datacenter)
+[![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://groups.uni-paderborn.de/kat/BearingDataCenter/)
 
 **SNRGate** is an SNR-aware dynamic routing framework for bearing fault
 diagnosis. A lightweight noise estimator scores the noise level of each input
@@ -38,7 +38,7 @@ damage transfer), 7-SNR sweep, seed 42:
 
 ## Dataset
 
-[Paderborn University bearing dataset](https://mb.uni-paderborn.de/kat/forschung/kat-datacenter/bearing-datacenter)
+[Paderborn University bearing dataset](https://groups.uni-paderborn.de/kat/BearingDataCenter/)
 (Lessmeier et al., PHME 2016) under the locked **PU-C1 A2R** protocol:
 17 training bearings with artificial damage, 10 test bearings with real
 damage, 3 classes (Normal / Inner-race / Outer-race), 2048-sample windows
