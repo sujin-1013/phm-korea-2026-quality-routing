@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 
 
-ModelSize = Literal["tiny", "small", "mid", "base", "x300", "large", "xl"]
+ModelSize = Literal["small", "medium", "large"]
 
 
 @dataclass(frozen=True)
@@ -17,17 +17,14 @@ class CNNSizeSpec:
     n_blocks: int
 
 
+# The three tiers presented at PHM Korea 2026: Small 133K / Medium 331K / Large 524K.
 CAPACITY_SIZES: dict[ModelSize, CNNSizeSpec] = {
-    "tiny": CNNSizeSpec(8, 2),
-    "small": CNNSizeSpec(16, 3),
-    "mid": CNNSizeSpec(20, 4),
-    "base": CNNSizeSpec(32, 4),
-    "x300": CNNSizeSpec(32, 5),
-    "large": CNNSizeSpec(64, 5),
-    "xl": CNNSizeSpec(128, 6),
+    "small": CNNSizeSpec(32, 4),   # ~133K params
+    "medium": CNNSizeSpec(32, 5),  # ~331K params
+    "large": CNNSizeSpec(64, 5),   # ~524K params
 }
 
-FINAL_CAPACITY_LADDER: tuple[ModelSize, ModelSize, ModelSize] = ("base", "x300", "large")
+FINAL_CAPACITY_LADDER: tuple[ModelSize, ModelSize, ModelSize] = ("small", "medium", "large")
 
 
 class CNN1D(nn.Module):

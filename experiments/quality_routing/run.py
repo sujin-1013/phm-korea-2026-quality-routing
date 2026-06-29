@@ -2,7 +2,7 @@
 
 This is the cleaned entrypoint for the final method:
 
-    Quality-gate routing over {base=133K, x300=331K, large=524K}
+    Quality-gate routing over {small=133K, medium=331K, large=524K}
 """
 from __future__ import annotations
 
@@ -155,12 +155,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=ROOT / "data" / "raw" / "paderborn_pu")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--ckpt-dir", type=Path, default=DEFAULT_CKPT_DIR)
-    parser.add_argument("--estimator-ckpt", type=Path, default=DEFAULT_CKPT_DIR / "noise_est_7.6k.pt")
+    parser.add_argument("--estimator-ckpt", type=Path, default=DEFAULT_CKPT_DIR / "noise_est_0.13k.pt")
     parser.add_argument("--scenario", choices=["indist", "bdis", "loco", "a2r"], default="indist")
     parser.add_argument("--test-condition", default="N09_M07_F10")
-    parser.add_argument("--sizes", default="small,mid,base,x300,large")
+    parser.add_argument("--sizes", default=",".join(FINAL_CAPACITY_LADDER))
     parser.add_argument("--ladder", default=",".join(FINAL_CAPACITY_LADDER))
-    parser.add_argument("--route-prefix", default="bxl")
+    parser.add_argument("--route-prefix", default="sml")
     parser.add_argument("--reference-tier", default="large")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=64)
@@ -171,7 +171,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cap-train", type=int, default=20_000)
     parser.add_argument("--cap-val", type=int, default=4_000)
     parser.add_argument("--cap-test", type=int, default=12_000)
-    parser.add_argument("--estimator-overhead-k", type=float, default=7.6)
+    parser.add_argument("--estimator-overhead-k", type=float, default=0.13)
     parser.add_argument("--estimator-epochs", type=int, default=30)
     parser.add_argument("--estimator-batch-size", type=int, default=64)
     parser.add_argument("--val-margin", type=float, default=0.01)
@@ -205,7 +205,7 @@ def load_noise_estimator(path: Path, *, device: str) -> NoiseEstimator1D:
         weights = state.get("model") or state.get("state_dict") or state
     else:
         weights = state
-    model = NoiseEstimator1D(channels=(8, 16, 16, 32)).to(device)
+    model = NoiseEstimator1D(channels=(7,)).to(device)
     model.load_state_dict(weights)
     model.eval()
     return model
@@ -229,7 +229,7 @@ def get_noise_estimator(
         epochs=epochs,
         batch_size=batch_size,
         device=device,
-        channels=(8, 16, 16, 32),
+        channels=(7,),
         kernel_size=7,
     )
     estimator, history = train_estimator(X_train, X_val, cfg)

@@ -30,7 +30,7 @@ class EstimatorTrainConfig:
     weight_decay: float = 1e-4
     snr_levels: tuple[float, ...] = (float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0)
     device: str = "cuda"
-    channels: tuple[int, ...] = (16, 32, 64, 128)
+    channels: tuple[int, ...] = (7,)
     kernel_size: int = 7
 
 
@@ -110,7 +110,7 @@ def train_estimator(
         history["val_mse"].append(vl_loss / max(n_vl, 1))
 
         # Disentangle check: on clean (SNR=∞) windows, estimator should output low noise_level.
-        # Define "false positive" as estimator > 0.33 (would route to 'base' or larger).
+        # Define "false positive" as estimator > 0.33 (would route to a larger tier).
         with torch.no_grad():
             xt = torch.from_numpy(signals_val).float().unsqueeze(1).to(device)
             preds_clean = model(xt).cpu().numpy()

@@ -17,27 +17,27 @@ from phm_routing.training.train_cnn import cap_arrays
 
 
 def test_quality_routing_ladder_sizes_are_pinned():
-    assert FINAL_CAPACITY_LADDER == ("base", "x300", "large")
-    assert CAPACITY_SIZES["base"].base_channels == 32
-    assert CAPACITY_SIZES["base"].n_blocks == 4
-    assert CAPACITY_SIZES["x300"].base_channels == 32
-    assert CAPACITY_SIZES["x300"].n_blocks == 5
+    assert FINAL_CAPACITY_LADDER == ("small", "medium", "large")
+    assert CAPACITY_SIZES["small"].base_channels == 32
+    assert CAPACITY_SIZES["small"].n_blocks == 4
+    assert CAPACITY_SIZES["medium"].base_channels == 32
+    assert CAPACITY_SIZES["medium"].n_blocks == 5
     assert CAPACITY_SIZES["large"].base_channels == 64
     assert CAPACITY_SIZES["large"].n_blocks == 5
 
 
 def test_cnn1d_forward_shape_and_parameter_order():
     x = torch.randn(4, 2048)
-    base = build_cnn("base")
-    x300 = build_cnn("x300")
+    small = build_cnn("small")
+    medium = build_cnn("medium")
     large = build_cnn("large")
-    assert base(x).shape == (4, 3)
-    assert count_parameters(base) < count_parameters(x300) < count_parameters(large)
+    assert small(x).shape == (4, 3)
+    assert count_parameters(small) < count_parameters(medium) < count_parameters(large)
 
 
 def test_cnn1d_rejects_non_window_batches():
     with pytest.raises(ValueError):
-        build_cnn("base")(torch.randn(4, 1, 2048))
+        build_cnn("small")(torch.randn(4, 1, 2048))
 
 
 def test_route_by_thresholds_uses_ascending_bins():
@@ -73,22 +73,22 @@ def test_cap_arrays_is_deterministic_and_preserves_pairs():
 
 def test_routed_predictions_and_cost():
     preds = {
-        "base": np.array([0, 0, 0, 0]),
-        "x300": np.array([1, 1, 1, 1]),
+        "small": np.array([0, 0, 0, 0]),
+        "medium": np.array([1, 1, 1, 1]),
         "large": np.array([2, 2, 2, 2]),
     }
     idx = np.array([0, 1, 2, 1])
-    out = routed_predictions(preds, ("base", "x300", "large"), idx)
+    out = routed_predictions(preds, ("small", "medium", "large"), idx)
     assert out.tolist() == [0, 1, 2, 1]
-    cost = active_cost_k(idx, ("base", "x300", "large"), {"base": 100_000, "x300": 300_000, "large": 500_000}, 7.6)
-    assert cost == pytest.approx(307.6)
+    cost = active_cost_k(idx, ("small", "medium", "large"), {"small": 100_000, "medium": 300_000, "large": 500_000}, 0.13)
+    assert cost == pytest.approx(300.13)
 
 
 def test_select_capacity_routes_picks_iso_under_val_margin():
     y = np.array([0, 1, 2, 2])
     val_predictions = {
-        "base": np.array([0, 0, 0, 0]),
-        "x300": np.array([0, 1, 1, 1]),
+        "small": np.array([0, 0, 0, 0]),
+        "medium": np.array([0, 1, 1, 1]),
         "large": np.array([0, 1, 2, 2]),
     }
     test_predictions = val_predictions
@@ -100,8 +100,8 @@ def test_select_capacity_routes_picks_iso_under_val_margin():
         y_test=y,
         test_predictions=test_predictions,
         test_score=score,
-        tiers=("base", "x300", "large"),
-        parameter_counts={"base": 100_000, "x300": 300_000, "large": 500_000},
+        tiers=("small", "medium", "large"),
+        parameter_counts={"small": 100_000, "medium": 300_000, "large": 500_000},
         estimator_overhead_k=0.0,
         threshold_grid=(0.33, 0.66),
     )

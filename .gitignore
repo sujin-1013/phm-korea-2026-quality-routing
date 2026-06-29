@@ -56,7 +56,6 @@ experiments/_backup*/
 
 # Per-experiment artefacts — keep aggregate result CSVs/JSONs, drop large dumps
 experiments/*/checkpoints/
-experiments/*/results/
 experiments/*/per_sample_predictions.csv
 experiments/*/diag_baseline_*_predictions.csv
 

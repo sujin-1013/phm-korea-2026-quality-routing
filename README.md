@@ -43,7 +43,7 @@ python -m pytest -q
 Protocol: Paderborn `vibration_1` only, 3 classes (Normal / inner-race / outer-race), 2048-sample
 non-overlapping windows (32 ms at 64 kHz). Classifiers train on clean signals; evaluation injects
 per-window AWGN from the SNR pool `{clean, 20, 10, 5, 0, -5, -10}` dB, with BatchNorm fixed in
-`.eval()` mode. The quality estimator (≈7.6K params) is self-supervised on injected SNR. Add `--retrain` /
+`.eval()` mode. The quality estimator (≈0.13K params) is self-supervised on injected SNR. Add `--retrain` /
 `--retrain-estimator` to regenerate checkpoints; `--scenario {indist,bdis,loco,a2r}` selects the split.
 
 ## Repository structure

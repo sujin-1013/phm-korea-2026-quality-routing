@@ -112,7 +112,7 @@ def select_capacity_routes(
     test_score: np.ndarray,
     tiers: Sequence[str],
     parameter_counts: Mapping[str, int],
-    estimator_overhead_k: float = 7.6,
+    estimator_overhead_k: float = 0.13,
     reference_tier: str = "large",
     val_margin: float = 0.01,
     target_cost_k: float = 250.0,

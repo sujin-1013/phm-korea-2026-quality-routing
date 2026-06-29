@@ -1,4 +1,4 @@
-"""1D CNN noise estimator (~100K params).
+"""1D CNN noise estimator (~0.13K params).
 
 Convention: the routing score is a **quality** score ``q ∈ [0, 1]`` where
 ``q = 1`` ≈ clean (high quality) and ``q = 0`` ≈ very noisy (low quality).
@@ -52,16 +52,17 @@ def quality_from_estimator(noise_out: torch.Tensor) -> torch.Tensor:
 
 
 class NoiseEstimator1D(nn.Module):
-    """A small 1D CNN regressor.
+    """A tiny 1D CNN regressor.
 
-    With the defaults (channels=[16,32,64,128], 4 stride-2 blocks) the param
-    count is ~95K, fitting the plan's "~100K" budget.
+    With the deployed default (channels=(7,), one stride-2 block) the param
+    count is ~0.13K (134), matching the PHM Korea 2026 quality-estimator budget.
+    Routing only needs a coarse, monotone SNR proxy, so a tiny head suffices.
     """
 
     def __init__(
         self,
         in_channels: int = 1,
-        channels: tuple[int, ...] = (16, 32, 64, 128),
+        channels: tuple[int, ...] = (7,),
         kernel_size: int = 7,
     ):
         super().__init__()
