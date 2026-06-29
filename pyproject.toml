@@ -1,0 +1,28 @@
+[project]
+name = "phm-quality-routing"
+version = "0.0.1"
+description = "Capacity-ladder quality routing for vibration fault diagnosis (PHM Korea 2026)"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1",
+    "numpy",
+    "scipy",
+    "scikit-learn",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ipykernel", "jupyter"]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

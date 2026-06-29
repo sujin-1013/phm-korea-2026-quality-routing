@@ -1,0 +1,68 @@
+# Data — never commit (Paderborn-PU is 26 GB; download via scripts/)
+data/raw/
+data/processed/
+data/interim/
+*.mat
+*.h5
+*.npy
+*.npz
+
+# Model weights — too large for git
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs / runs
+runs/
+logs/
+wandb/
+mlruns/
+outputs/
+multirun/
+*.log
+
+# Hydra
+.hydra/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Paper directory — kept local only (manuscript, figures, internal logs, submission docs)
+paper/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Stale backup directories (1.9 GB+, ckpt-bearing)
+experiments/_backup*/
+
+# Per-experiment artefacts — keep aggregate result CSVs/JSONs, drop large dumps
+experiments/*/checkpoints/
+experiments/*/results/
+experiments/*/per_sample_predictions.csv
+experiments/*/diag_baseline_*_predictions.csv
+
+# OMC / Claude session state (not part of the project)
+.omc/
+.claude/
+
+# Plan files (live outside the repo)
+plans/
