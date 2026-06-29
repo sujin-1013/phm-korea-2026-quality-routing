@@ -65,3 +65,7 @@ experiments/*/diag_baseline_*_predictions.csv
 
 # Plan files (live outside the repo)
 plans/
+
+# Presentation/manuscript binaries — kept local only
+*.pdf
+*.pptx
