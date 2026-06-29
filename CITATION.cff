@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the associated presentation below."
+title: "Quality-Guided Dynamic Model Selection for Bearing Fault Diagnosis under Noisy Conditions"
+authors:
+  - family-names: Choi
+    given-names: Sujin
+    affiliation: "Korea Electronics Technology Institute (KETI)"
+version: 0.0.1
+date-released: 2026-06-26
+license: MIT
+url: "https://github.com/sujin-1013/phm-korea-2026-quality-routing"
+repository-code: "https://github.com/sujin-1013/phm-korea-2026-quality-routing"
+preferred-citation:
+  type: conference-paper
+  title: "Quality-Guided Dynamic Model Selection for Bearing Fault Diagnosis under Noisy Conditions"
+  authors:
+    - family-names: Choi
+      given-names: Sujin
+      affiliation: "Korea Electronics Technology Institute (KETI)"
+  collection-title: "PHM Korea 2026 (Korean Society for Prognostics and Health Management)"
+  year: 2026
+  location:
+    name: "Busan, Korea"

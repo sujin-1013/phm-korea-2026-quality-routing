@@ -2,6 +2,7 @@
 
 [![Venue](https://img.shields.io/badge/PHM%20Korea%202026-presented-00629B)]()
 [![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://groups.uni-paderborn.de/kat/BearingDataCenter/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 A quality-guided dynamic routing method for bearing-fault diagnosis from noisy vibration
 signals. A tiny SNR-supervised quality estimator scores each window, and a validation-calibrated
@@ -68,7 +69,9 @@ phm-korea-2026-quality-routing/
 ├── assets/
 │   └── framework.png         # method overview figure
 ├── tests/                    # PU-C1 split + routing unit tests
-└── pyproject.toml            # package metadata + dependencies
+├── pyproject.toml            # package metadata + dependencies
+├── CITATION.cff              # how to cite this work
+└── LICENSE                   # MIT
 ```
 
 ## Citation
@@ -102,8 +105,8 @@ the Paderborn benchmark dataset:
 
 ## License & contact
 
-No license file is included yet; the method paper is in preparation, so please contact the
-author before reuse. The Paderborn PU dataset is distributed by Paderborn University under its
-own terms and is **not redistributed** in this repository — download it via the script above.
+Released under the [MIT License](LICENSE) (© 2026 Sujin Choi, KETI). The Paderborn PU dataset is
+distributed by Paderborn University under its own terms and is **not redistributed** in this
+repository — download it via the script above.
 
 Sujin Choi — KETI, Next-Generation Power System Research Center · [@sujin-1013](https://github.com/sujin-1013)
