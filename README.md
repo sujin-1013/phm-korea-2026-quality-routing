@@ -9,6 +9,10 @@ gate routes it to one of three 1D-CNN tiers (133K / 331K / 524K params), running
 classifier per window. On the Paderborn PU benchmark under per-window mixed-SNR noise, the gate
 matches the large model's macro-F1 within 0.3 pp while using 49% fewer average active parameters.
 
+<p align="center">
+  <img src="framework.png" width="900"/>
+</p>
+
 ## Highlights
 
 - **Quality estimator** — a tiny 1D-CNN supervised by injected SNR (no fault labels) emits a score `q ∈ [0,1]` (higher = cleaner), used only for routing.
