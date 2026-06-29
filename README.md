@@ -46,6 +46,13 @@ pip install -e ".[dev]"
 bash scripts/download_paderborn.sh
 ```
 
+If your workflow prefers requirements files:
+
+```bash
+pip install -r requirements-dev.txt
+pip install -e . --no-deps
+```
+
 ## Reproduce The Final Path
 
 ```bash
