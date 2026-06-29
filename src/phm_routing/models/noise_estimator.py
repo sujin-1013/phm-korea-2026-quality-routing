@@ -1,4 +1,4 @@
-"""1D CNN noise estimator (~0.13K params).
+"""1D CNN quality estimator used by the final routing experiment.
 
 Convention: the routing score is a **quality** score ``q ∈ [0, 1]`` where
 ``q = 1`` ≈ clean (high quality) and ``q = 0`` ≈ very noisy (low quality).
@@ -19,6 +19,18 @@ import math
 
 import torch
 import torch.nn as nn
+
+
+SLIDE_ESTIMATOR_CHANNELS: tuple[int, ...] = (2, 2, 2, 2)
+SLIDE_ESTIMATOR_PARAM_COUNT = 131
+SLIDE_ESTIMATOR_OVERHEAD_K = SLIDE_ESTIMATOR_PARAM_COUNT / 1_000.0
+LEGACY_ESTIMATOR_CHANNELS: tuple[int, ...] = (8, 16, 16, 32)
+LEGACY_ESTIMATOR_PARAM_COUNT = 7_633
+LEGACY_ESTIMATOR_OVERHEAD_K = LEGACY_ESTIMATOR_PARAM_COUNT / 1_000.0
+
+DEPLOYED_ESTIMATOR_CHANNELS = SLIDE_ESTIMATOR_CHANNELS
+DEPLOYED_ESTIMATOR_PARAM_COUNT = SLIDE_ESTIMATOR_PARAM_COUNT
+DEPLOYED_ESTIMATOR_OVERHEAD_K = SLIDE_ESTIMATOR_OVERHEAD_K
 
 
 def snr_to_target(snr_db: float | torch.Tensor) -> torch.Tensor:
@@ -54,15 +66,15 @@ def quality_from_estimator(noise_out: torch.Tensor) -> torch.Tensor:
 class NoiseEstimator1D(nn.Module):
     """A tiny 1D CNN regressor.
 
-    With the deployed default (channels=(7,), one stride-2 block) the param
-    count is ~0.13K (134), matching the PHM Korea 2026 quality-estimator budget.
-    Routing only needs a coarse, monotone SNR proxy, so a tiny head suffices.
+    The PHM Korea slide default uses ``channels=(2, 2, 2, 2)`` and has 131
+    trainable parameters with ``kernel_size=7``. The module head regresses
+    noise level; routing code converts it to presentation quality ``q``.
     """
 
     def __init__(
         self,
         in_channels: int = 1,
-        channels: tuple[int, ...] = (7,),
+        channels: tuple[int, ...] = DEPLOYED_ESTIMATOR_CHANNELS,
         kernel_size: int = 7,
     ):
         super().__init__()

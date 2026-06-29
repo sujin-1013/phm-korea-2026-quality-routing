@@ -19,7 +19,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from phm_routing.data.noise_injection import add_awgn, random_snr_sample
-from phm_routing.models.noise_estimator import NoiseEstimator1D, snr_to_target
+from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_CHANNELS, NoiseEstimator1D, snr_to_target
 
 
 @dataclass
@@ -30,7 +30,7 @@ class EstimatorTrainConfig:
     weight_decay: float = 1e-4
     snr_levels: tuple[float, ...] = (float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0)
     device: str = "cuda"
-    channels: tuple[int, ...] = (7,)
+    channels: tuple[int, ...] = DEPLOYED_ESTIMATOR_CHANNELS
     kernel_size: int = 7
 
 

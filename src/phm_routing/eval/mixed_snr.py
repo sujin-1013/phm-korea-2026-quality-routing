@@ -10,11 +10,12 @@ import torch
 import torch.nn as nn
 
 from phm_routing.data.noise_injection import add_awgn
+from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_OVERHEAD_K, quality_from_estimator
 from phm_routing.utils.metrics import macro_f1
 
 
 MIXED_SNR_LEVELS: tuple[float, ...] = (20.0, 10.0, 5.0, 0.0, -5.0, -10.0, float("inf"))
-DEFAULT_THRESHOLD_GRID: tuple[float, ...] = tuple(round(float(x), 2) for x in np.arange(0.05, 0.91, 0.05))
+DEFAULT_THRESHOLD_GRID: tuple[float, ...] = tuple(round(float(x), 2) for x in np.arange(0.10, 0.96, 0.05))
 
 
 @dataclass(frozen=True)
@@ -52,12 +53,20 @@ def add_mixed_awgn(
     return Xn, assigned_snr
 
 
-def route_by_thresholds(score: np.ndarray, thresholds: Sequence[float]) -> np.ndarray:
-    """Map a monotone noise/quality score to tier index via ascending thresholds."""
-    score = np.asarray(score)
-    out = np.zeros(score.shape[0], dtype=np.int64)
+def route_by_thresholds(quality_score: np.ndarray, thresholds: Sequence[float]) -> np.ndarray:
+    """Map quality ``q`` to tier index using ascending quality thresholds.
+
+    Tiers are ordered from cheap to expensive. With two thresholds
+    ``(q_low, q_high)``, windows with ``q >= q_high`` use tier 0, windows with
+    ``q_low <= q < q_high`` use tier 1, and windows with ``q < q_low`` use tier
+    2. This matches the PHM Korea slide wording: high quality -> small tier,
+    low quality -> large tier.
+    """
+    score = np.asarray(quality_score)
+    thresholds = tuple(float(t) for t in thresholds)
+    out = np.full(score.shape[0], len(thresholds), dtype=np.int64)
     for threshold in thresholds:
-        out += (score >= threshold).astype(np.int64)
+        out -= (score >= threshold).astype(np.int64)
     return out
 
 
@@ -91,14 +100,37 @@ def estimate_noise_score(
     """Return the estimator's monotone noise score.
 
     The saved final estimator emits noise level directly: low for clean windows,
-    high for noisy windows. Threshold routing therefore sends larger scores to
-    larger tiers.
+    high for noisy windows. This helper is retained for diagnostics; final
+    routing uses ``estimate_quality_score``.
     """
     estimator.eval()
     scores: list[np.ndarray] = []
     for start in range(0, X.shape[0], batch_size):
         xb = X[start : start + batch_size].to(device).unsqueeze(1)
         scores.append(estimator(xb).cpu().numpy())
+    return np.concatenate(scores) if scores else np.empty(0, dtype=np.float64)
+
+
+@torch.no_grad()
+def estimate_quality_score(
+    estimator: nn.Module,
+    X: torch.Tensor,
+    *,
+    device: str,
+    batch_size: int = 256,
+) -> np.ndarray:
+    """Return the presentation quality score ``q``.
+
+    The saved estimator emits noise level ``n`` directly. The slide and final
+    routing convention use ``q = 1 - n`` where higher values mean cleaner
+    windows and therefore cheaper tiers.
+    """
+    estimator.eval()
+    scores: list[np.ndarray] = []
+    for start in range(0, X.shape[0], batch_size):
+        xb = X[start : start + batch_size].to(device).unsqueeze(1)
+        noise_level = estimator(xb)
+        scores.append(quality_from_estimator(noise_level).cpu().numpy())
     return np.concatenate(scores) if scores else np.empty(0, dtype=np.float64)
 
 
@@ -112,13 +144,16 @@ def select_capacity_routes(
     test_score: np.ndarray,
     tiers: Sequence[str],
     parameter_counts: Mapping[str, int],
-    estimator_overhead_k: float = 0.13,
+    estimator_overhead_k: float = DEPLOYED_ESTIMATOR_OVERHEAD_K,
     reference_tier: str = "large",
     val_margin: float = 0.01,
     target_cost_k: float = 250.0,
     threshold_grid: Sequence[float] = DEFAULT_THRESHOLD_GRID,
 ) -> dict[str, RoutingResult]:
-    """Pick iso, accmatch, and fixed-cost operating points for a tier ladder."""
+    """Pick iso, accmatch, and fixed-cost operating points for a tier ladder.
+
+    ``val_score`` and ``test_score`` are quality scores: higher means cleaner.
+    """
     tiers = tuple(tiers)
     if len(tiers) < 2:
         raise ValueError("tiers must include at least two models")

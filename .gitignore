@@ -61,6 +61,7 @@ experiments/*/diag_baseline_*_predictions.csv
 
 # OMC / Claude session state (not part of the project)
 .omc/
+.omx/
 .claude/
 
 # Plan files (live outside the repo)

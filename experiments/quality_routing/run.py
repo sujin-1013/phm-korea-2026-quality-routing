@@ -18,12 +18,17 @@ import torch
 
 from phm_routing.eval.mixed_snr import (
     add_mixed_awgn,
-    estimate_noise_score,
+    estimate_quality_score,
     predict_all_models,
     select_capacity_routes,
 )
 from phm_routing.models.cnn1d import FINAL_CAPACITY_LADDER, ModelSize
-from phm_routing.models.noise_estimator import NoiseEstimator1D
+from phm_routing.models.noise_estimator import (
+    DEPLOYED_ESTIMATOR_CHANNELS,
+    DEPLOYED_ESTIMATOR_OVERHEAD_K,
+    LEGACY_ESTIMATOR_CHANNELS,
+    NoiseEstimator1D,
+)
 from phm_routing.training.train_cnn import (
     CLEAN_ONLY_AUGMENT,
     cap_arrays,
@@ -107,8 +112,8 @@ def main() -> None:
     test_noisy, _ = add_mixed_awgn(Xte, seed=args.test_noise_seed)
     val_predictions = predict_all_models(models, val_noisy, device=device, batch_size=args.eval_batch_size)
     test_predictions = predict_all_models(models, test_noisy, device=device, batch_size=args.eval_batch_size)
-    val_score = estimate_noise_score(estimator, val_noisy, device=device, batch_size=args.eval_batch_size)
-    test_score = estimate_noise_score(estimator, test_noisy, device=device, batch_size=args.eval_batch_size)
+    val_score = estimate_quality_score(estimator, val_noisy, device=device, batch_size=args.eval_batch_size)
+    test_score = estimate_quality_score(estimator, test_noisy, device=device, batch_size=args.eval_batch_size)
 
     rows: list[tuple[str, float, float, str]] = []
     for size in sizes:
@@ -155,7 +160,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=ROOT / "data" / "raw" / "paderborn_pu")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--ckpt-dir", type=Path, default=DEFAULT_CKPT_DIR)
-    parser.add_argument("--estimator-ckpt", type=Path, default=DEFAULT_CKPT_DIR / "noise_est_0.13k.pt")
+    parser.add_argument("--estimator-ckpt", type=Path, default=DEFAULT_CKPT_DIR / "quality_est_0.13k.pt")
     parser.add_argument("--scenario", choices=["indist", "bdis", "loco", "a2r"], default="indist")
     parser.add_argument("--test-condition", default="N09_M07_F10")
     parser.add_argument("--sizes", default=",".join(FINAL_CAPACITY_LADDER))
@@ -171,7 +176,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cap-train", type=int, default=20_000)
     parser.add_argument("--cap-val", type=int, default=4_000)
     parser.add_argument("--cap-test", type=int, default=12_000)
-    parser.add_argument("--estimator-overhead-k", type=float, default=0.13)
+    parser.add_argument("--estimator-overhead-k", type=float, default=DEPLOYED_ESTIMATOR_OVERHEAD_K)
     parser.add_argument("--estimator-epochs", type=int, default=30)
     parser.add_argument("--estimator-batch-size", type=int, default=64)
     parser.add_argument("--val-margin", type=float, default=0.01)
@@ -205,10 +210,19 @@ def load_noise_estimator(path: Path, *, device: str) -> NoiseEstimator1D:
         weights = state.get("model") or state.get("state_dict") or state
     else:
         weights = state
-    model = NoiseEstimator1D(channels=(7,)).to(device)
+    channels = resolve_estimator_channels(path, state)
+    model = NoiseEstimator1D(channels=channels).to(device)
     model.load_state_dict(weights)
     model.eval()
     return model
+
+
+def resolve_estimator_channels(path: Path, state) -> tuple[int, ...]:
+    if isinstance(state, dict) and "channels" in state:
+        return tuple(int(v) for v in state["channels"])
+    if "7.6" in path.name or "7_6" in path.name:
+        return LEGACY_ESTIMATOR_CHANNELS
+    return DEPLOYED_ESTIMATOR_CHANNELS
 
 
 def get_noise_estimator(
@@ -229,7 +243,7 @@ def get_noise_estimator(
         epochs=epochs,
         batch_size=batch_size,
         device=device,
-        channels=(7,),
+        channels=DEPLOYED_ESTIMATOR_CHANNELS,
         kernel_size=7,
     )
     estimator, history = train_estimator(X_train, X_val, cfg)
