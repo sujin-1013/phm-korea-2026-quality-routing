@@ -10,7 +10,7 @@ classifier per window. On the Paderborn PU benchmark under per-window mixed-SNR 
 matches the large model's macro-F1 within 0.3 pp while using 49% fewer average active parameters.
 
 <p align="center">
-  <img src="framework.png" width="900"/>
+  <img src="assets/framework.png" width="900"/>
 </p>
 
 ## Highlights
@@ -65,10 +65,10 @@ phm-korea-2026-quality-routing/
 │       └── run.py            # canonical end-to-end routing experiment
 ├── scripts/
 │   └── download_paderborn.sh # fetch the Paderborn PU dataset
+├── assets/
+│   └── framework.png         # method overview figure
 ├── tests/                    # PU-C1 split + routing unit tests
-├── pyproject.toml
-├── requirements.txt
-└── requirements-dev.txt
+└── pyproject.toml            # package metadata + dependencies
 ```
 
 ## Citation
