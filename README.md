@@ -1,32 +1,33 @@
-# Capacity-Ladder Quality Routing for Bearing Fault Diagnosis under Mixed-SNR Noise
+# Quality-Guided Dynamic Model Selection for Bearing Fault Diagnosis under Noisy Conditions
 
-[![Venue](https://img.shields.io/badge/PHM%20Korea%202026-in%20preparation-orange)]()
+[![Venue](https://img.shields.io/badge/PHM%20Korea%202026-presented-00629B)]()
 [![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://groups.uni-paderborn.de/kat/BearingDataCenter/)
 
-A compact 1D-CNN capacity ladder for vibration bearing-fault diagnosis that routes each
-input to the cheapest model whose validation macro-F1 stays within a margin of the largest
-model. An always-on noise estimator emits a monotone noise score, and routing thresholds are
-selected on validation data — so the gate trades compute for accuracy without ever beating the
-large model, delivering 2.13× lower average cost at comparable macro-F1.
+A quality-guided dynamic routing method for bearing-fault diagnosis from noisy vibration
+signals. A tiny SNR-supervised quality estimator scores each window, and a validation-calibrated
+gate routes it to one of three 1D-CNN tiers (133K / 331K / 524K params), running a single
+classifier per window. On the Paderborn PU benchmark under per-window mixed-SNR noise, the gate
+matches the large model's macro-F1 within 0.3 pp while using 49% fewer average active parameters.
 
 ## Highlights
 
-- **Capacity ladder** — three 1D-CNNs (`base` ≈133K, `x300` ≈331K, `large` ≈524K params) form a cost/accuracy ladder.
-- **Quality routing** — an always-on noise estimator produces a monotone score; validation-selected thresholds pick the cheapest tier within 0.01 macro-F1 of `large`.
-- **2.13× cheaper** — the gate matches single-`large` accuracy at 246K average active params instead of 524K.
-- **Honest scope** — the claim is cost efficiency, not accuracy gain; artificial-to-real (A2R) and bearing-disjoint evaluation remain near chance because the damage-domain gap dominates.
+- **Quality estimator** — a tiny 1D-CNN supervised by injected SNR (no fault labels) emits a score `q ∈ [0,1]` (higher = cleaner), used only for routing.
+- **Quality gate** — two validation-calibrated thresholds send high-quality windows to the small tier and low-quality windows to the large tier; exactly one model runs per window.
+- **−49% active params** — 0.615 macro-F1 at 266K average active params vs 524K for the large tier (0.51× cost) at only −0.3 pp F1.
+- **In-distribution scope** — larger tiers stay more robust as SNR drops; cross-domain transfer (A2R / bearing-disjoint) is left as future work.
 
 ## Results
 
-Mixed-SNR test, repeated-measurement summary on the Paderborn PU-C1 protocol (macro-F1):
+Paderborn PU, trained on clean signals only, tested under per-window mixed SNR (clean → −10 dB); macro-F1 and average active parameters.
 
-| Method | Macro-F1 | Avg active params | vs large |
+| Method | Macro-F1 | Active params | Param ratio (Large=1) |
 |:---|---:|---:|---:|
-| single x300 | 0.611 | 331K | 1.58× cheaper |
-| **single large** | **0.624** | 524K | 1.00× |
-| **quality gate over {133K, 331K, 524K}** | 0.619 | **246K** | **2.13× cheaper** |
+| Small | 0.553 | 133K | 0.25 |
+| Medium | 0.611 | 331K | 0.63 |
+| Large | **0.618** | 524K | 1.00 |
+| **Quality gate** | **0.615** | **266K** | **0.51** |
 
-The routed model does not beat single-`large` in F1; the value is matching it at less than half the average compute.
+The claim is cost efficiency, not accuracy gain: the gate matches the large tier (−0.3 pp) at roughly half the average compute. Numbers follow the PHM Korea 2026 presentation (2026-06-26).
 
 ## Installation & Usage
 
@@ -39,11 +40,11 @@ python experiments/quality_routing/run.py --seed 42
 python -m pytest -q
 ```
 
-Data protocol: Paderborn `vibration_1` only, 3 classes (Normal / inner-race / outer-race),
-2048-sample non-overlapping windows (32 ms at 64 kHz), AWGN injected per window from the SNR
-pool `{clean, 20, 10, 5, 0, -5, -10}` dB, with BatchNorm fixed in `.eval()` mode for reported
-evaluation. Add `--retrain` / `--retrain-estimator` only when regenerating checkpoints from raw
-data; `--scenario {indist,bdis,loco,a2r}` selects the evaluation split.
+Protocol: Paderborn `vibration_1` only, 3 classes (Normal / inner-race / outer-race), 2048-sample
+non-overlapping windows (32 ms at 64 kHz). Classifiers train on clean signals; evaluation injects
+per-window AWGN from the SNR pool `{clean, 20, 10, 5, 0, -5, -10}` dB, with BatchNorm fixed in
+`.eval()` mode. The quality estimator (≈7.6K params) is self-supervised on injected SNR. Add `--retrain` /
+`--retrain-estimator` to regenerate checkpoints; `--scenario {indist,bdis,loco,a2r}` selects the split.
 
 ## Repository structure
 
@@ -51,7 +52,7 @@ data; `--scenario {indist,bdis,loco,a2r}` selects the evaluation split.
 phm-korea-2026-quality-routing/
 ├── src/phm_routing/
 │   ├── data/                 # Paderborn loading, windowing, AWGN injection, PU-C1 split
-│   ├── models/               # 1D-CNN capacity ladder + noise estimator
+│   ├── models/               # 1D-CNN capacity ladder + quality (noise) estimator
 │   ├── training/             # CNN and estimator training loops
 │   ├── eval/                 # mixed-SNR routing selection + metrics
 │   └── utils/                # seeding, metric helpers
@@ -68,9 +69,19 @@ phm-korea-2026-quality-routing/
 
 ## Citation
 
-Method paper in preparation (PHM Korea 2026). Please cite the Paderborn benchmark dataset:
+Method presented at PHM Korea 2026; proceedings in preparation. Please cite the presentation and
+the Paderborn benchmark dataset:
 
 ```bibtex
+@misc{Choi2026QualityRouting,
+  title  = {Quality-Guided Dynamic Model Selection for Bearing Fault
+            Diagnosis under Noisy Conditions},
+  author = {Choi, Sujin},
+  note   = {PHM Korea 2026, Korean Society for Prognostics and Health
+            Management, Busan, Korea},
+  year   = {2026}
+}
+
 @inproceedings{Lessmeier2016,
   title     = {Condition Monitoring of Bearing Damage in Electromechanical Drive
                Systems by Using Motor Current Signals of Electric Motors: A
@@ -91,4 +102,4 @@ No license file is included yet; the method paper is in preparation, so please c
 author before reuse. The Paderborn PU dataset is distributed by Paderborn University under its
 own terms and is **not redistributed** in this repository — download it via the script above.
 
-Sujin Choi — KETI · [@sujin-1013](https://github.com/sujin-1013)
+Sujin Choi — KETI, Next-Generation Power System Research Center · [@sujin-1013](https://github.com/sujin-1013)
