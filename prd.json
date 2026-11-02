@@ -1,0 +1,51 @@
+{
+  "project": "Honest performance-improvement methods over the single-large ceiling (noise-robust bearing diagnosis, PHM Korea 2026)",
+  "goal": "The current routing only reduces COST (matches large, never exceeds). User asks: are there legitimate methods that actually IMPROVE accuracy over single-large on the noisy task? Test pre-declared standard techniques honestly with 3 seeds on the canonical mixed-SNR protocol; report every result (win OR no-win) without seed/threshold cherry-picking. A 'pass' means the method was honestly tested and recorded, NOT that it beat large.",
+  "integrity": "Pre-declared methods only (no post-hoc fishing). 3-seed mean+-std. Headline = 3-seed mean, never single best seed. Same mixed-SNR test + saved final_models where applicable. Report failures as failures. Compare against the FIXED canonical table (large 0.624, ours 0.611, hardgate 0.581, mid 0.547, small 0.491).",
+  "stories": [
+    {
+      "id": "US-1",
+      "title": "Tier ensemble (logit/prob averaging of small+mid+large) on mixed-SNR",
+      "passes": true,
+      "evidence": "NO-WIN (honestly recorded). 3-seed mixed-SNR: ensemble(s+m+l)=0.569+-.042@586K (-0.055 vs large), ensemble(mid+large)=0.586+-.049@577K (-0.038). Ensemble WORSE than single large at higher cost — weak-member drag (small/mid weak in noise), consistent with complementarity absence. REPRODUCIBILITY_FINDINGS.md 8-2m added. imp_ensemble.csv saved.",
+      "acceptanceCriteria": [
+        "Soft-vote ensemble (mean of softmax over small+mid+large) evaluated on the SAME mixed-SNR test, 3 seeds, using saved final_models",
+        "Report ensemble macro-F1 mean+-std AND cost (sum of 3 tiers = 586K) vs single large (0.624@524K)",
+        "Result recorded in REPRODUCIBILITY_FINDINGS.md regardless of win/no-win; state whether it beats large within seed noise"
+      ]
+    },
+    {
+      "id": "US-2",
+      "title": "Magnitude/structured pruning + fine-tune of large (does pruning improve, not just shrink?)",
+      "passes": true,
+      "evidence": "NO-WIN on accuracy, with CONTROL. 3-seed mixed: dense 0.624 / p30 0.624 / p50 0.625 / p70 0.630 (all within std). CONTROL dense+12ep-ft(no prune)=0.623, per-seed swing identical to pruned (s42 +.035/s1 -.031/s7 -.006) => gains are extra-training noise, NOT pruning. User hypothesis unsupported. BUT 70% prune (156K nonzero) keeps F1 => REDUNDANCY confirmed (reinforces capacity story: redundant capacity buys robustness; 9K-from-scratch collapses). REPRODUCIBILITY 8-2m, fig_pruning.png, imp_prune.csv + imp_prune_control.csv.",
+      "acceptanceCriteria": [
+        "Prune large (global magnitude 30/50/70%) then fine-tune on clean; evaluate pruned-large on mixed-SNR, 3 seeds",
+        "Report pruned macro-F1 mean+-std + effective nonzero params vs dense large (0.624); test the user's hypothesis 'pruning removes redundancy and can improve performance'",
+        "Recorded in REPRODUCIBILITY_FINDINGS.md regardless of outcome (incl. if pruning only matches or degrades)"
+      ]
+    },
+    {
+      "id": "US-3",
+      "title": "Noise-augmented training of large (standard noise-robustness booster)",
+      "passes": true,
+      "evidence": "WIN (the only method that genuinely improves accuracy). noise-aug + noisy-val selection: 0.651+-.007 vs clean-large 0.624+-.028 = +0.027, 2/3 seeds improve (s42 +.063,s1 +.024,s7 -.006), variance cut 4x (.028->.007). clean-val variant weaker (0.633,+0.009 within noise) due to train/val noise mismatch. CAVEAT: protocol change (model sees noise in training, not clean-only); needs deployment-matched val. val noise seed 333 != test 222 (no leakage). REPRODUCIBILITY 8-2m method 3/3b, imp_noiseaug.csv + imp_noiseaug_nv.csv, saved cnn_large_noiseaug_nv_s*.pt.",
+      "acceptanceCriteria": [
+        "Train large with AWGN augmentation (SNR range incl. clean) then evaluate on the SAME mixed-SNR test, 3 seeds",
+        "Report aug-trained large macro-F1 mean+-std vs clean-trained large (0.624); clearly note this is a DIFFERENT training protocol (not clean-only)",
+        "Recorded in REPRODUCIBILITY_FINDINGS.md; state protocol-change caveat explicitly"
+      ]
+    },
+    {
+      "id": "US-4",
+      "title": "Synthesis + honest documentation for PHM Korea",
+      "passes": true,
+      "evidence": "REPRODUCIBILITY 8-2m added with all 4 methods (ensemble -0.055, pruning +0.006/control-confirmed-noise, noise-aug clean-val +0.009, noise-aug noisy-val +0.027) + synthesis table + verdict. Honest positive: noise-aug(noisy-val) is the only accuracy improver. Figures fig_pruning.png + fig_improve.png. Canonical fixed table UNTOUCHED (improvement methods reported as separate additions). Headlines are 3-seed means, no seed cherry-pick.",
+      "acceptanceCriteria": [
+        "REPRODUCIBILITY_FINDINGS.md new section summarizing all tested improvement methods with 3-seed numbers and win/no-win verdict each",
+        "If any method genuinely beats large (mean, within seed noise), state it as a positive contribution with the cost/protocol trade-off; if none do, state that honestly",
+        "No seed cherry-pick; headline numbers are 3-seed means; canonical fixed table untouched"
+      ]
+    }
+  ]
+}

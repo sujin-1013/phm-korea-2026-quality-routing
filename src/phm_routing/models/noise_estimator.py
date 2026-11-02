@@ -1,8 +1,17 @@
-"""1D CNN noise estimator (~100K params).
+"""1D CNN quality estimator used by the final routing experiment.
 
-Trained to regress a 0~1 noise level from a raw vibration window.
-Target is ``sigmoid_snr(snr_db) = sigmoid(-snr_db / 10)`` so 0 ≈ clean, 1 ≈ very noisy.
-This places the rule-thresholds (τ₁=0.33, τ₂=0.66) at sensible SNR cuts.
+Convention: the routing score is a **quality** score ``q ∈ [0, 1]`` where
+``q = 1`` ≈ clean (high quality) and ``q = 0`` ≈ very noisy (low quality).
+
+Implementation note: the network head is *trained* to regress the complementary
+**noise level** ``n = 1 - q`` (target ``sigmoid(-snr_db / 10)``, so 0 ≈ clean,
+1 ≈ very noisy). Quality is therefore obtained at the use-site as
+``q = 1 - estimator(x)`` (see ``snr_to_quality``). Keeping the head in noise space
+preserves the existing trained checkpoint; expressing routing in quality space is a
+label change only — identical decisions, no retraining.
+
+Routing reads naturally in quality space: HIGH q (clean) → cheap tier,
+LOW q (noisy) → large/dense tier.
 """
 from __future__ import annotations
 
@@ -10,6 +19,18 @@ import math
 
 import torch
 import torch.nn as nn
+
+
+SLIDE_ESTIMATOR_CHANNELS: tuple[int, ...] = (2, 2, 2, 2)
+SLIDE_ESTIMATOR_PARAM_COUNT = 131
+SLIDE_ESTIMATOR_OVERHEAD_K = SLIDE_ESTIMATOR_PARAM_COUNT / 1_000.0
+LEGACY_ESTIMATOR_CHANNELS: tuple[int, ...] = (8, 16, 16, 32)
+LEGACY_ESTIMATOR_PARAM_COUNT = 7_633
+LEGACY_ESTIMATOR_OVERHEAD_K = LEGACY_ESTIMATOR_PARAM_COUNT / 1_000.0
+
+DEPLOYED_ESTIMATOR_CHANNELS = SLIDE_ESTIMATOR_CHANNELS
+DEPLOYED_ESTIMATOR_PARAM_COUNT = SLIDE_ESTIMATOR_PARAM_COUNT
+DEPLOYED_ESTIMATOR_OVERHEAD_K = SLIDE_ESTIMATOR_OVERHEAD_K
 
 
 def snr_to_target(snr_db: float | torch.Tensor) -> torch.Tensor:
@@ -24,17 +45,36 @@ def snr_to_target(snr_db: float | torch.Tensor) -> torch.Tensor:
     return torch.sigmoid(-snr_db / 10.0)
 
 
-class NoiseEstimator1D(nn.Module):
-    """A small 1D CNN regressor.
+def snr_to_quality(snr_db: float | torch.Tensor) -> torch.Tensor:
+    """Map SNR (dB) to the 0~1 **quality** score ``q = 1 - noise_level``.
 
-    With the defaults (channels=[16,32,64,128], 4 stride-2 blocks) the param
-    count is ~95K, fitting the plan's "~100K" budget.
+    ``snr_db = inf`` → 1 (clean / high quality), ``snr_db = -inf`` → 0 (very noisy),
+    monotonically *increasing*. Equivalent to ``sigmoid(snr_db / 10)``.
+
+    The trained estimator outputs the noise level; recover quality with
+    ``q = 1 - estimator(x)``.
+    """
+    return 1.0 - snr_to_target(snr_db)
+
+
+def quality_from_estimator(noise_out: torch.Tensor) -> torch.Tensor:
+    """Convert a trained-estimator output (noise level, 0 ≈ clean) to the quality
+    score used for routing (``q = 1 - noise``, so 1 ≈ clean)."""
+    return 1.0 - noise_out
+
+
+class NoiseEstimator1D(nn.Module):
+    """A tiny 1D CNN regressor.
+
+    The PHM Korea slide default uses ``channels=(2, 2, 2, 2)`` and has 131
+    trainable parameters with ``kernel_size=7``. The module head regresses
+    noise level; routing code converts it to presentation quality ``q``.
     """
 
     def __init__(
         self,
         in_channels: int = 1,
-        channels: tuple[int, ...] = (16, 32, 64, 128),
+        channels: tuple[int, ...] = DEPLOYED_ESTIMATOR_CHANNELS,
         kernel_size: int = 7,
     ):
         super().__init__()

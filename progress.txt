@@ -1,0 +1,28 @@
+RALPH PROGRESS — Honest performance-improvement methods over single-large (PHM Korea 2026)
+
+CONTEXT
+- Canonical FIXED table (mixed-SNR, 3-seed, NEVER cherry-pick): large 0.624@524K, ours(quality gate) 0.611@398K, hardgate 0.581@199K, mid 0.547@53K, small 0.491@9K.
+- Current story: routing only REDUCES COST (matches large, no accuracy gain / no complementarity).
+- Goal: test pre-declared standard methods that might actually IMPROVE accuracy. Report win OR no-win honestly. pass = honestly tested+recorded, not "beat large".
+- Saved assets: experiments/exp_scenario/final_models/cnn_{small,mid,large}_s{42,1,7}.pt + noise_est_7.6k.pt
+- Eval = mixed_noise per-window random SNR, test seed 222, cap test 12000 (matches mixedfig).
+- Plotting uses system python3 (no matplotlib in sg311); training/torch uses /tmp/sg311/bin/python.
+
+METHODS TO TEST (pre-declared)
+US-1 Tier ensemble (softmax mean small+mid+large)  — reuse saved models, no training
+US-2 Pruning + fine-tune of large (magnitude 30/50/70%) — needs fine-tune
+US-3 Noise-augmented training of large — needs retrain (different protocol, note caveat)
+US-4 Synthesis + REPRODUCIBILITY_FINDINGS doc
+
+LEARNINGS
+- US-1 ensemble: NO-WIN. ens(s+m+l)=0.569 (-0.055), ens(m+l)=0.586 (-0.038). Weak-member drag; complementarity absent. Recorded 8-2m.
+- US-2 pruning: 3-seed mean dense 0.624 / p30 0.624 / p50 0.625 / p70 0.630 — pruning MATCHES dense, no reliable gain. Per-seed noisy (s42 +0.03~0.04, s1 -0.02~-0.04, s7 ~0). 70% prune keeps F1 with only 156K nonzero => confirms REDUNDANCY (can shrink) but not IMPROVEMENT.
+- US-2 CONFOUND flagged: pruned models got +12ep fine-tune. Control (dense+12ep ft, no prune) running to attribute gain. If control ~=0.62-0.63, the tiny +0.006 is extra-training noise, not pruning.
+- KEY INSIGHT for talk: pruning result REINFORCES the capacity story — large has redundancy (prunable to ~156K) yet small-from-scratch (9K) collapses. Redundant capacity != wasted; it's what buys noise robustness.
+- US-2 CONTROL DONE (decisive): dense+12ep-ft(no prune) 3-seed mean = 0.623 (-0.001 vs dense), per-seed s42 +0.035/s1 -0.031/s7 -0.006 — SAME swing pattern as pruned. => per-seed pruning "gains" are extra-training/checkpoint noise, NOT pruning. Pruning contributes ~0 to accuracy; only proves redundancy. Confound controlled. fig_pruning.png made.
+- US-3 noise-aug (clean-val selection) DONE: 3-seed 0.633+-0.032 vs clean-large 0.624 = +0.009 (within noise; seed42 0.657/s1 0.588/s7 0.654 — s1 regressed). Weak because checkpoint selected on CLEAN val while training on noise (mismatch handicap).
+- US-3b noise-aug (NOISY-val selection, textbook-correct) RUNNING. Pre-declared single variant to fix the handicap, not fishing. Val noised with seed 333 (!= test 222) to avoid leakage. Will report both.
+- PATTERN so far: ensemble NO, pruning NO (redundancy only), noise-aug clean-val marginal(+0.009). noise-aug is the only positive-trending lever; noisy-val variant will tell if it's a real, robust gain.
+- US-3b noise-aug(noisy-val) DONE = WIN: 0.651+-.007 vs clean-large 0.624 = +0.027, variance cut 4x. 2/3 seeds clearly improve. THE answer to user: training-time noise (deployment-matched val) is the real accuracy lever, not pruning/ensemble/routing.
+- ALL US-1..4 pass. Docs: REPRODUCIBILITY 8-2m. Figures: fig_pruning.png, fig_improve.png. Models saved: cnn_large_noiseaug{,_nv}_s*.pt. CSVs: imp_{ensemble,prune,prune_control,noiseaug,noiseaug_nv}.csv. Scripts in fig_scripts/.
+- TALK FRAMING: 3 contributions hold + new positive: (1) capacity=robustness, (2) routing=cost-efficiency not accuracy, (3) leakage-aware eval; NEW (4) pruning shows redundancy not gain; (5) noise-aug training is the genuine accuracy improver (+0.027, lower variance) at cost of clean-only protocol.

@@ -1,0 +1,5 @@
+method,code_method,macro_f1_mean,active_params_k_mean,display_macro_f1,display_active_params_k,param_ratio_large,source
+Small,single_base,0.5530,133.3,0.553,133,0.25,"mean over exp_4tier_s{1,2,3,5,7,11,13,42}.csv; code tier base"
+Medium,single_x300,0.6109,330.7,0.611,331,0.63,"mean over exp_4tier_s{1,2,3,5,7,11,13,42}.csv; code tier x300"
+Large,single_large,0.6177,523.8,0.618,524,1.00,"mean over exp_4tier_s{1,2,3,5,7,11,13,42}.csv; code tier large"
+Quality gate,bxl_iso,0.6146,265.8,0.615,266,0.51,"mean over exp_4tier_s{1,2,3,5,7,11,13,42}.csv; validation iso operating point"

@@ -1,0 +1,8 @@
+method,f1,cost_K,sh_small,sh_mid,sh_large
+single_small,0.4959,9.2,,,
+single_mid,0.5406,53.1,,,
+single_large,0.5940,523.8,,,
+oracle,0.5442,171.4,0.4294,0.2954,0.2752
+hardgate,0.5531,199.6,0.3471,0.3254,0.3275
+ours_accmax,0.5804,380.9,0.1103,0.1993,0.6904
+ours_costmatch,0.5804,380.9,0.1103,0.1993,0.6904

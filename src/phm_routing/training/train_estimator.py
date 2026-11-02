@@ -1,7 +1,8 @@
-"""Train the 1D-CNN noise estimator on mixed-SNR vibration windows.
+"""Train the 1D-CNN quality estimator on mixed-SNR vibration windows.
 
 Target = ``snr_to_target(snr_db) = sigmoid(-snr_db / 10)`` — monotonically
-decreasing in SNR. Loss = MSE on this target.
+decreasing in SNR. This target is the internal noise level ``n``; routing uses
+the presentation quality score ``q = 1 - n``.
 
 Phase 2 §2.1 also calls for a fault/noise disentangle metric: the estimator
 should NOT output a high noise level on a clean faulty signal (SNR=∞ but
@@ -19,7 +20,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from phm_routing.data.noise_injection import add_awgn, random_snr_sample
-from phm_routing.models.noise_estimator import NoiseEstimator1D, snr_to_target
+from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_CHANNELS, NoiseEstimator1D, snr_to_target
 
 
 @dataclass
@@ -30,6 +31,8 @@ class EstimatorTrainConfig:
     weight_decay: float = 1e-4
     snr_levels: tuple[float, ...] = (float("inf"), 20.0, 10.0, 5.0, 0.0, -5.0, -10.0)
     device: str = "cuda"
+    channels: tuple[int, ...] = DEPLOYED_ESTIMATOR_CHANNELS
+    kernel_size: int = 7
 
 
 class MixedSNRDataset(Dataset):
@@ -74,7 +77,7 @@ def train_estimator(
     train_dl = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, num_workers=0, drop_last=True)
     val_dl = DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False, num_workers=0)
 
-    model = NoiseEstimator1D().to(device)
+    model = NoiseEstimator1D(channels=cfg.channels, kernel_size=cfg.kernel_size).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     loss_fn = nn.MSELoss()
 
@@ -108,7 +111,7 @@ def train_estimator(
         history["val_mse"].append(vl_loss / max(n_vl, 1))
 
         # Disentangle check: on clean (SNR=∞) windows, estimator should output low noise_level.
-        # Define "false positive" as estimator > 0.33 (would route to 'base' or larger).
+        # Define "false positive" as estimator > 0.33 (would lower q enough to up-route).
         with torch.no_grad():
             xt = torch.from_numpy(signals_val).float().unsqueeze(1).to(device)
             preds_clean = model(xt).cpu().numpy()

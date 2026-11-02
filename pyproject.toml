@@ -1,18 +1,23 @@
 [project]
 name = "phm-routing"
 version = "0.0.1"
-description = "Noise-adaptive MOMENT routing for vibration fault diagnosis (PHM Korea 2026)"
+description = "Capacity-ladder quality routing for vibration fault diagnosis (PHM Korea 2026)"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.1",
-    "torchaudio",
     "numpy",
     "scipy",
-    "pywavelets",
     "scikit-learn",
     "pandas",
     "matplotlib",
     "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ipykernel", "jupyter"]
+legacy-moment = [
+    "torchaudio",
+    "pywavelets",
     "pyyaml",
     "hydra-core",
     "fvcore",
@@ -21,9 +26,6 @@ dependencies = [
     "huggingface-hub",
     "momentfm",
 ]
-
-[project.optional-dependencies]
-dev = ["pytest", "ipykernel", "jupyter"]
 
 [build-system]
 requires = ["setuptools>=64"]

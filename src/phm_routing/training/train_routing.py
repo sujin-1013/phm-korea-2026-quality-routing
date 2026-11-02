@@ -34,7 +34,13 @@ from phm_routing.models.router import GateConfig, LearnableSNRGate
 from phm_routing.utils.metrics import macro_f1
 
 
-_TIER_SIZES: tuple[MomentSize, MomentSize, MomentSize] = ("small", "base", "large")
+import os as _os
+
+# Tier sizes are overridable via SNRGATE_TIERS (e.g. "small,small,small" for the
+# SSS ablation). Default reproduces the published S/B/L configuration.
+_TIER_SIZES: tuple[MomentSize, MomentSize, MomentSize] = tuple(  # type: ignore[assignment]
+    _os.environ.get("SNRGATE_TIERS", "small,base,large").split(",")
+)
 
 
 @dataclass

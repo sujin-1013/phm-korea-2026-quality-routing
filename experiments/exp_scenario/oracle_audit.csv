@@ -1,0 +1,6 @@
+metric,mean,std
+large_acc,0.6819,0.0340
+oracle_acc,0.7620,0.0388
+large_f1,0.6237,0.0278
+oracle_f1,0.7365,0.0550
+headroom,0.0801,0.0048

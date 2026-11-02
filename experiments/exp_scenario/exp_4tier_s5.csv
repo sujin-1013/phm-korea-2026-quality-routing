@@ -1,0 +1,9 @@
+method,f1,cost_K,shares
+single_small,0.4971,9.2,
+single_mid,0.5405,53.1,
+single_base,0.5584,133.3,
+single_x300,0.5767,330.7,
+single_large,0.5953,523.8,
+bxl_iso,0.5917,190.4,0.749/0.251/0.000
+bxl_accmatch,0.5943,389.3,0.287/0.156/0.557
+bxl_fc,0.5741,245.8,0.564/0.339/0.098
