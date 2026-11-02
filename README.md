@@ -111,3 +111,13 @@ distributed by Paderborn University under its own terms and is **not redistribut
 repository — download it via the script above.
 
 Sujin Choi — KETI, Next-Generation Power System Research Center · [@sujin-1013](https://github.com/sujin-1013)
+
+## Workbench history
+
+The experiments behind this repository were run in a separate workbench
+(`phm-korea-2026-snrgate`, merged here on 2026-11-02). Its full history is kept in
+three branches of this repository: `workbench-main` (development trunk, 17 commits),
+`workbench-sss-ablation` (SSS/SBL ablations, mixed-SNR evaluation, 1D-CNN baseline)
+and `workbench-cleanup` (the cleanup pass that produced this standalone project).
+Trained checkpoints from those runs live outside git under
+`~/datasets/weights/snrgate/`.
