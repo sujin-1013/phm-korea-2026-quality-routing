@@ -1,4 +1,8 @@
-# Quality-Guided Dynamic Model Selection for Bearing Fault Diagnosis under Noisy Conditions
+# Quality-Guided Routing
+
+> **Quality-Guided Dynamic Model Selection for Bearing Fault Diagnosis under Noisy Conditions**\
+> Sujin Choi\
+> Korea Electronics Technology Institute (KETI) · PHM Korea 2026, Busan, presented 2026-06-26
 
 [![Venue](https://img.shields.io/badge/PHM%20Korea%202026-presented-00629B)]()
 [![Dataset](https://img.shields.io/badge/Paderborn%20PU-PU--C1%20A2R-4b8bbe)](https://groups.uni-paderborn.de/kat/BearingDataCenter/)
