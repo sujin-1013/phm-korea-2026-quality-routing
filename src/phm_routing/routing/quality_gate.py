@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 
 from phm_routing.data.noise_injection import add_awgn
-from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_OVERHEAD_K, quality_from_estimator
+from phm_routing.models.quality_estimator import DEPLOYED_ESTIMATOR_OVERHEAD_K, quality_from_estimator
 from phm_routing.utils.metrics import macro_f1
 
 

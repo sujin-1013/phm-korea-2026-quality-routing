@@ -19,7 +19,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from phm_routing.data.noise_injection import add_awgn, random_snr_sample
-from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_CHANNELS, NoiseEstimator1D, snr_to_target
+from phm_routing.models.quality_estimator import DEPLOYED_ESTIMATOR_CHANNELS, NoiseEstimator1D, snr_to_target
 
 
 @dataclass

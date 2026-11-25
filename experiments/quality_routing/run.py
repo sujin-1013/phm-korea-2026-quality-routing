@@ -16,14 +16,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import torch
 
-from phm_routing.eval.mixed_snr import (
+from phm_routing.routing.quality_gate import (
     add_mixed_awgn,
     estimate_quality_score,
     predict_all_models,
     select_capacity_routes,
 )
 from phm_routing.models.cnn1d import FINAL_CAPACITY_LADDER, ModelSize
-from phm_routing.models.noise_estimator import (
+from phm_routing.models.quality_estimator import (
     DEPLOYED_ESTIMATOR_CHANNELS,
     DEPLOYED_ESTIMATOR_OVERHEAD_K,
     LEGACY_ESTIMATOR_CHANNELS,

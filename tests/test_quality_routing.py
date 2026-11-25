@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from phm_routing.eval.mixed_snr import (
+from phm_routing.routing.quality_gate import (
     active_cost_k,
     add_mixed_awgn,
     route_by_thresholds,
@@ -12,7 +12,7 @@ from phm_routing.eval.mixed_snr import (
     select_capacity_routes,
 )
 from phm_routing.models.cnn1d import CAPACITY_SIZES, FINAL_CAPACITY_LADDER, build_cnn, count_parameters
-from phm_routing.models.noise_estimator import DEPLOYED_ESTIMATOR_PARAM_COUNT, NoiseEstimator1D, quality_from_estimator
+from phm_routing.models.quality_estimator import DEPLOYED_ESTIMATOR_PARAM_COUNT, NoiseEstimator1D, quality_from_estimator
 from phm_routing.training.train_cnn import cap_arrays
 
 

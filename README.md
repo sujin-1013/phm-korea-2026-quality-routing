@@ -64,7 +64,7 @@ phm-korea-2026-quality-routing/
 │   ├── data/                 # Paderborn loading, windowing, AWGN injection, PU-C1 split
 │   ├── models/               # 1D-CNN capacity ladder + quality (noise) estimator
 │   ├── training/             # CNN and estimator training loops
-│   ├── eval/                 # mixed-SNR routing selection + metrics
+│   ├── routing/              # quality-gated route selection + metrics
 │   └── utils/                # seeding, metric helpers
 ├── experiments/
 │   └── quality_routing/
